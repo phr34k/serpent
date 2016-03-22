@@ -1,0 +1,302 @@
+import serpent, os, subprocess, ctypes
+
+serpent.projects = {}
+serpent.outdirs = {}
+serpent.configuration = {}
+
+def external(project, name, configuration = None ):
+	if not os.path.exists(project):
+		raise Exception("Path %s does not exists" % project )
+	if serpent.projects.get(name, None) != None:
+		raise Exception("Duplicate name")
+	serpent.projects[name] = project;
+	if configuration is not None:
+		serpent.configuration[name] = configuration
+	serpent.target( name = name )
+
+def cmake(name, project, folder, input):
+	relative_input = os.path.relpath(input, folder)
+	if not os.path.exists(folder): os.makedirs(folder)
+	if not os.path.exists(input):
+		raise Exception("Input folder does not exists")	
+	def _premake():
+		if name in serpent._targets: subprocess.call(["C:\\Program Files (x86)\\CMake\\bin\\cmake.exe", relative_input], cwd=folder)
+		external(name = name, project = project )
+	serpent._premake.append(_premake)
+
+def visual_studio(project, files, name, deps = [], toolset='v110', defines = [], includes = [], libs = [], compileopts = [], linkopts = [],  intdir='Intermediate\\', outdir='Release\\', resources=[], shared=False, runtime = 'StaticRuntime' ):
+
+	intdir = os.path.relpath(intdir, os.path.dirname(project))
+	outdir = os.path.relpath(outdir, os.path.dirname(project))
+	
+	if runtime not in ['StaticRuntime', 'DynamicRuntime']:
+		raise Exception("Runtime not expected")
+	else:
+		index = ['StaticRuntime', 'DynamicRuntime'].index(runtime)
+		mappings = ['MultiThreaded','MultiThreadedDLL']
+		runtime = mappings[index]
+
+	if serpent.projects.get(name, None) != None:
+		raise Exception("Duplicate name")
+	serpent.projects[name] = project;
+	serpent.outdirs[name] = outdir;
+	serpent.target( name = name )
+
+	if serpent.action == "workspace" or serpent.action == "build" or serpent.action == "rebuild" or serpent.action == "clean":
+		_shared = "Application"
+		if shared == True:
+			_shared = "DynamicLibrary"
+		_compileopts = " ".join(compileopts);
+		_linkopts = " ".join(linkopts);
+		if not os.path.exists(os.path.dirname(project)): os.mkdir(os.path.dirname(project))
+		fobj = open(project, 'w')
+		fobj.write("""
+<Project DefaultTargets="Build" ToolsVersion="12.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup>
+    <ConfigurationType>%s</ConfigurationType>
+    <PlatformToolset>%s</PlatformToolset>
+    <Configuration>Release</Configuration>
+    <OutDir>%s</OutDir>
+    <IntDir>%s</IntDir>    
+  </PropertyGroup>
+  <ItemDefinitionGroup>
+    <ClCompile>
+      <AdditionalOptions>%s %%(AdditionalOptions)</AdditionalOptions>
+      <PreprocessorDefinitions>%s</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>%s;%%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <RuntimeLibrary>%s</RuntimeLibrary>
+    </ClCompile>
+    <Link>
+      <AdditionalOptions>%s %%(AdditionalOptions)</AdditionalOptions>
+      <AdditionalDependencies>%s</AdditionalDependencies>
+      <SubSystem>Console</SubSystem>
+    </Link>    
+  </ItemDefinitionGroup>  
+  <ItemGroup>
+    <ProjectConfiguration Include="Release|Win32">
+      <Configuration>Release</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.default.props" />
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+		""" %  (_shared, toolset, outdir, intdir, _compileopts, ";".join(defines), ";".join(includes), runtime, _linkopts, ";".join(libs)))
+		print _shared
+
+		fobj.write("<ItemGroup>\n");
+		for x in files:			
+			fobj.write("    <ClCompile Include=\"%s\" />" % os.path.relpath(x, os.path.basename(project)));
+		fobj.write("</ItemGroup>\n");				
+
+		fobj.write("<ItemGroup>\n");
+		for x in resources:			
+			fobj.write("    <ResourceCompile Include=\"%s\" />\n" % os.path.relpath(x, os.path.basename(project)));
+		fobj.write("</ItemGroup>\n");	
+
+		fobj.write("""
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Targets" />
+</Project>
+		""")
+		fobj.close();
+
+def qt_project(project, files, name, deps = [], toolset='v110', defines = [], includes = [], libs = [], compileopts = [], linkopts = [],  intdir='Intermediate\\', outdir='Release\\', uifiles = [], uiheaders = [], uiresource = [], resources = [] ):
+	if serpent.projects.get(name, None) != None:
+		raise Exception("Duplicate name")
+
+	intdir = os.path.relpath(intdir, os.path.dirname(project))
+	outdir = os.path.relpath(outdir, os.path.dirname(project))
+
+	serpent.projects[name] = project;
+	serpent.outdirs[name] = outdir;
+	serpent.target( name = name )
+
+	if serpent.action == "workspace" or serpent.action == "build" or serpent.action == "rebuild" or serpent.action == "clean":
+
+		_compileopts = " ".join(compileopts);
+		_linkopts = " ".join(linkopts);
+		includes = [x.replace('\\', '\\\\') for x in includes]
+		if not os.path.exists(os.path.dirname(project)): os.mkdir(os.path.dirname(project))
+		fobj = open(project, 'w')
+		fobj.write("""
+<Project DefaultTargets="Build" ToolsVersion="12.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup>
+    <ConfigurationType>Application</ConfigurationType>
+    <PlatformToolset>%s</PlatformToolset>
+    <Configuration>Release</Configuration>
+    <OutDir>%s</OutDir>
+    <IntDir>%s</IntDir>
+	<QTDIR>E:\\Programming - VC Sdk\\Qt\\5.5\\msvc2012</QTDIR>  
+	<Moc>$(QTDIR)/bin/moc.exe</Moc>
+	<GenDir>moc_$(MSBuildProjectName)</GenDir>
+  </PropertyGroup>
+  <ItemDefinitionGroup>
+    <ClCompile>
+      <AdditionalOptions>%s %%(AdditionalOptions)</AdditionalOptions>
+      <PreprocessorDefinitions>%s</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>%s;$(GenDir);%%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+    </ClCompile>
+    <Link>
+      <AdditionalOptions>%s %%(AdditionalOptions)</AdditionalOptions>
+      <AdditionalDependencies>%s</AdditionalDependencies>
+    </Link>    
+  </ItemDefinitionGroup>  
+  <ItemGroup>
+    <ProjectConfiguration Include="Release|Win32">
+      <Configuration>Release</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.default.props" />
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />  
+		""" %  (toolset, outdir, intdir, _compileopts, ";".join(defines), ";".join(includes), _linkopts, ";".join(libs)))
+
+		fobj.write("<ItemGroup>\n");
+		for x in files:			
+			fobj.write("    <ClCompile Include=\"%s\" />\n" % os.path.relpath(x, os.path.basename(project)));
+		fobj.write("</ItemGroup>\n");
+
+		fobj.write("<ItemGroup>\n");
+		for x in uifiles:			
+			fobj.write("    <UIFiles Include=\"%s\" />\n" % os.path.relpath(x, os.path.basename(project)));
+		fobj.write("</ItemGroup>\n");
+
+		fobj.write("<ItemGroup>\n");
+		for x in uiheaders:			
+			fobj.write("    <QtIncludes Include=\"%s\" />\n" % os.path.relpath(x, os.path.basename(project)));
+		fobj.write("</ItemGroup>\n");
+
+		fobj.write("<ItemGroup>\n");
+		for x in uiresource:			
+			fobj.write("    <ResFiles Include=\"%s\" />\n" % os.path.relpath(x, os.path.basename(project)));
+		fobj.write("</ItemGroup>\n");
+
+		fobj.write("<ItemGroup>\n");
+		for x in resources:			
+			fobj.write("    <ResourceCompile Include=\"%s\" />\n" % os.path.relpath(x, os.path.basename(project)));
+		fobj.write("</ItemGroup>\n");		
+ 
+ 		fobj.write("""
+ <Target Name="CompileQtQRC" BeforeTargets="ClCompile" Inputs="@(ResFiles)" Outputs="@(ResFiles->'%(RootDir)%(Directory)qrc_%(Filename).cpp')">
+	 <Message Text="Compiling: %(ResFiles.FullPath) using rcc" />
+	 <Exec Command="&quot;$(QTDIR)/bin/rcc.exe&quot; &quot;%(ResFiles.FullPath)&quot; -o &quot;%(ResFiles.RootDir)%(ResFiles.Directory)qrc_%(ResFiles.Filename).cpp&quot;"/>
+ </Target>		
+ <Target Name="CreateDirectories" BeforeTargets="Moc">
+    <MakeDir Directories="$(GenDir)"/>
+ </Target>
+ <Target Name="Moc" Inputs="@(QtIncludes)" BeforeTargets="ClCompile" Outputs="@(QtIncludes->'$(GenDir)/moc_%(Filename).cpp')">
+    <Exec Command = "&quot;$(Moc)&quot; &quot;%(QtIncludes.identity)&quot; -nw -o &quot;$(GenDir)/moc_%(Filename).cpp&quot; $(MocFlags)"/>
+  	<ItemGroup>
+        <ClCompile Include="$(GenDir)/moc_%(Filename).cpp" Condition="Exists('$(GenDir)/moc_%(Filename).cpp')" />
+    </ItemGroup> 
+ </Target>
+ <Target Name="CompileQtUI" BeforeTargets="ClCompile" Inputs="@(UIFiles)" Outputs="@(UIFiles->'$(GenDir)/ui_%(Filename).h')">
+ 	<Message Text="Compiling: %(UIFiles.FullPath) using UIC" />
+ 	<Exec Command="&quot;$(QTDIR)\\bin\\uic.exe&quot; &quot;%(UIFiles.FullPath)&quot; -o &quot;$(GenDir)/ui_%(UIFiles.Filename).h&quot;"/>
+ </Target>		
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Targets" />
+</Project>
+		""")
+		fobj.close();
+
+
+
+
+def msbuild(project, projects = []):
+	if not os.path.exists(os.path.dirname(project)):
+		raise Exception("Path does not exists")
+	if serpent.action == "workspace" or serpent.action == "build" or serpent.action == "rebuild" or serpent.action == "clean":		
+		if not os.path.exists(os.path.dirname(project)): os.mkdir(os.path.dirname(project))
+		fobj = open(project, 'w')
+		fobj.write("""
+		<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+		    <ItemGroup>\n
+		""")
+		for x in projects:
+			configuration = serpent.configuration.get(x, 'Release')
+			x = serpent.projects.get(x, None);				
+			if x is not None:
+				fobj.write("    <ProjectToBuild Include=\"%s\">\n" % os.path.relpath(x, os.path.basename(project)));
+				fobj.write("    <AdditionalProperties>Configuration=%s</AdditionalProperties>\n" % configuration)
+				fobj.write("    </ProjectToBuild>\n")
+
+		fobj.write("""
+		    </ItemGroup>""")
+
+		fobj.write("""
+		    <Target Name="Build">			    
+		        <MSBuild Projects="@(ProjectToBuild)" Properties="Configuration=Release" Targets="Build" />
+		    </Target>
+		""")
+
+		fobj.write("""		    
+		    <Target Name="Rebuild">
+		        <MSBuild Projects="@(ProjectToBuild)" Properties="Configuration=Release" Targets="Rebuild" />
+		    </Target>
+		""")
+
+		fobj.write("""
+		    <Target Name="Clean">
+		        <MSBuild Projects="@(ProjectToBuild)" Properties="Configuration=Release" Targets="Clean" />
+		    </Target>
+		""")
+
+	
+		fobj.write("""
+			<Target Name="Prebuild" BeforeTargets="Build;Rebuild;Clean">
+				<message text="Prebuild target running" importance="high" ></message>
+				<Exec Command="%s prebuild" WorkingDirectory="%s" />				
+			</Target>
+			<Target Name="Postbuild" AfterTargets="Build;Rebuild;Clean">
+				<message text="Postbuild target running" importance="high"></message>
+				<Exec Command="%s postbuild" WorkingDirectory="%s" />				
+			</Target>
+		    <Target Name="Empty">
+		    </Target>
+		""" % (serpent._SERPENT_COMMAND, serpent._WORKING_DIR, serpent._SERPENT_COMMAND, serpent._WORKING_DIR) )
+
+		fobj.write("""</Project>""")
+		fobj.close();
+
+def build():
+	if serpent.action == "prebuild":
+		for x in serpent._premake:
+			x()
+		msbuild(project = "msvc/common.msproj", projects = serpent._targets)
+
+	if serpent.action == "prebuild":
+		for x in serpent._prebuild:
+			x()
+	if serpent.action == "postbuild":
+		for x in serpent._postbuild:
+			x()
+	if serpent.action == "build":
+		msbuild(project = "msvc/common.msproj", projects = serpent._targets)
+		subprocess.call(['C:/Windows/Microsoft.NET/Framework/v4.0.30319/msbuild.exe', 'msvc/common.msproj', '/t:Build', '/p:ADK_PATH=E:\\Workspaces\\Import', '/verbosity:m',
+		'/flp:Summary;Verbosity=minimal;LogFile=BUILD_SUMMARY', '/flp1:warningsonly;logfile=BUILD_WARNINGS', '/flp2:errorsonly;logfile=BUILD_ERRORS', '/maxcpucount:4'])
+	if serpent.action == "rebuild":
+		for x in serpent._premake:
+			x()
+		msbuild(project = "msvc/common.msproj", projects = serpent._targets)
+		subprocess.call(['C:/Windows/Microsoft.NET/Framework/v4.0.30319/msbuild.exe', 'msvc/common.msproj', '/t:Rebuild', '/p:ADK_PATH=E:\\Workspaces\\Import', '/verbosity:m',
+		'/flp:Summary;Verbosity=minimal;LogFile=BUILD_SUMMARY', '/flp1:warningsonly;logfile=BUILD_WARNINGS', '/flp2:errorsonly;logfile=BUILD_ERRORS', '/maxcpucount:4'])
+	if serpent.action == "clean":
+		for x in serpent._premake:
+			x()
+		msbuild(project = "msvc/common.msproj", projects = serpent._targets)
+		subprocess.call(['C:/Windows/Microsoft.NET/Framework/v4.0.30319/msbuild.exe', 'msvc/common.msproj', '/t:Clean', '/p:ADK_PATH=E:\\Workspaces\\Import', '/verbosity:m', '/flp:Summary;Verbosity=minimal;LogFile=BUILD_SUMMARY', '/flp1:warningsonly;logfile=BUILD_WARNINGS', '/flp2:errorsonly;logfile=BUILD_ERRORS', '/maxcpucount:4'])
+	if serpent.action == "run":
+		print ""
+		for x in serpent._targets:
+			project_file = serpent.projects.get(x, None)
+			outdir = serpent.outdirs.get(x, None)
+
+			if not project_file: continue
+			print "Running.... %s" % project_file
+			executable =  os.path.join(os.path.dirname(project_file), outdir) + "/" + os.path.splitext(os.path.basename(project_file))[0] + ".exe"
+			print executable
+			subprocess.call([executable])
+			print ""
+			print ""
+
+serpent.build = build;
+del build
