@@ -1,4 +1,4 @@
-# serpent
+# Serpent
 a python based project generation system and build system.
 
 ## Command-line reference
