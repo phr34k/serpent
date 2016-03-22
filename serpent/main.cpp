@@ -4,9 +4,15 @@
 #include <streambuf>
 #include "FileGlobBase.h"
 #include "FileGlobList.h"
-#include <windows.h>
 #include <map>
 #include <set>
+
+#include <direct.h>
+#ifdef WINDOWS
+#include <windows.h>
+#else //WINDOWS
+#error
+#endif
 
 std::string file = "BUILDENV";
 PyObject* obj = 0;
@@ -92,6 +98,7 @@ static PyObject* emb_glob(PyObject *self, PyObject *args, PyObject *kwargs)
     if (!PyArg_ParseTupleAndKeywords(args, kwargs, "O|OO", kwlist, &include, &exclude, &ignore))
         return Py_BuildValue("");
 
+    #ifdef WINDOWS
     FileGlobList glob;
 
     if( exclude )
@@ -135,6 +142,11 @@ static PyObject* emb_glob(PyObject *self, PyObject *args, PyObject *kwargs)
 	}
 
     return rslt;
+    #else
+    //TODO implement glob expressions for linux
+    PyObject *rslt = PyList_New(0);
+    return rslt;
+    #endif
 }
 
 
@@ -187,6 +199,7 @@ static PyMethodDef EmbMethods[] = {
     {NULL, NULL, 0, NULL}
 };
 
+#ifdef WINDOWS
 LPSTR* CommandLineToArgvA(LPSTR lpCmdLine, INT *pNumArgs)
 {
     int retval;
@@ -257,6 +270,7 @@ LPSTR* CommandLineToArgvA(LPSTR lpCmdLine, INT *pNumArgs)
     *pNumArgs = numArgs;
     return result;
 }
+#endif //WINDOWS
 
 bool parse_responsefile(const char* responseFile);
 
@@ -297,10 +311,12 @@ bool parse_responsefile(const char* responseFile)
 	{
 		std::string str((std::istreambuf_iterator<char>(t)), std::istreambuf_iterator<char>());
 
+		#ifdef WINDOWS
 		int argc = 0;
 		char** argv = CommandLineToArgvA((char*)str.c_str(), &argc);
 		parse_argv(argv, argc);
 		return true;
+		#endif 
 	}
 
 	return false;
@@ -309,7 +325,7 @@ bool parse_responsefile(const char* responseFile)
 int main(int argc, char** argv)
 {
 	char workingDirectory[2048];
-	GetCurrentDirectoryA(2048, workingDirectory);
+	_getcwd(workingDirectory, 2048);
 
     Py_Initialize();
 
