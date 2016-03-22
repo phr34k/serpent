@@ -175,6 +175,7 @@ static PyObject* emb_run(PyObject *self, PyObject *args)
 		PyObject *pNewMod = PyModule_New("");
 		PyModule_AddStringConstant(pNewMod, "__file__", command);
 		PyObject *pLocal = PyModule_GetDict(pNewMod);
+		PyDict_SetItemString(pLocal, "serpent", obj);
 		PyDict_SetItemString(pLocal, "__builtins__", PyEval_GetBuiltins());
 		pValue = PyRun_String(str.c_str(), Py_file_input, pLocal, pLocal);
 		if (pValue == NULL) {

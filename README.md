@@ -40,6 +40,9 @@ msbuild_ext.visual_studio(
 	libs = [os.path.join(serpent.triggers['python-sdk'], 'libs/python27.lib')]
 )
 
+# Loads the partial build script from a subfolder, the triggers and optiones declared will be listed.
+serpent.include('samples/cpp/BUILDENV')
+
 # Flags a function as a prebuild step which gets evaluated before compilation of targets
 @serpent.prebuild
 def run():
