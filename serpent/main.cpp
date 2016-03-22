@@ -63,7 +63,10 @@ static PyObject* emb_option(PyObject *self, PyObject *args, PyObject *kwargs)
 	static char *kwlist[] = {"trigger", "value", "description", NULL};
     if (!PyArg_ParseTupleAndKeywords(args, kwargs, "s|ss", kwlist, &trigger, &value, &description))
         return Py_BuildValue("");
-	PyDict_SetItemString(options, trigger, Py_BuildValue("s", value));
+    if(PyDict_Contains(options, Py_BuildValue("s", trigger)) == false ) {
+    	PyDict_SetItemString(options, trigger, Py_BuildValue("s", value));	
+    }
+	
 	_options_desc[trigger] = description;
 	_options_value[trigger] = value;
     return Py_BuildValue("");
@@ -268,6 +271,11 @@ bool parse_argv(char** argv, int argc)
 		}
 		else if( argv[i][0] == '/' && argv[i][1] == 'f' && argv[i][2] == ':' ) {
 			file = argv[i] + 3;
+		}
+		else if( argv[i][0] == '-' && argv[i][1] == '-' && strchr(&argv[i][2], '=') != 0 ) {
+			std::string name(&argv[i][2], strchr(&argv[i][2], '='));
+			std::string value(strchr(&argv[i][2], '=') + 1);
+			PyDict_SetItemString(options, name.c_str(), Py_BuildValue("s",value.c_str()));
 		}
 		else if( argv[i][0] == '@') 
 		{
