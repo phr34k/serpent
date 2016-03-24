@@ -91,4 +91,6 @@ serpent._WORKING_DIR			The current working directory
 
 ## Getting started
 
-This project currently is only available for windows, it uses python 2.7, so we are going to assume you have it installed somewhere.  Adjust the location in the BUILDENV file to change the location. From that point on you should be able to call env rebuild /t:serpent_project.
+This project currently is only available for windows, it uses python 2.7, so we are going to assume you have it installed somewhere. To build the environment from source we use the command `nmake PYTHON=C:\Python27\\` this will cause the command to compile a bootstap version of the environment and then use the real environment to furter compile itself with the command `env rebuild /t:serpent_project --python-sdk=C:\Python27`
+
+From that point on the build environment can be used to compile the sample projects using `env build /t:sample_cpp && env run /t:sample_cpp`.
