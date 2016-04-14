@@ -365,8 +365,12 @@ int main(int argc, char** argv)
 	PyObject_SetAttrString(obj, "_SERPENT_SCRIPT", Py_BuildValue("s",file.c_str()));
 	PyObject_SetAttrString(obj, "_WORKING_DIR", Py_BuildValue("s",workingDirectory));
 	PyObject* serpent_dictionary = PyModule_GetDict(obj);
+	PyDict_SetItemString(serpent_dictionary, "__builtins__", PyEval_GetBuiltins());
+
+
 
 	extern std::string data;
+	
 	PyObject* pValue = PyRun_String(data.c_str(), Py_file_input, serpent_dictionary, serpent_dictionary);
 	if (pValue == NULL) {
 	   PyErr_Print();
