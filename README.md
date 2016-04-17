@@ -84,6 +84,9 @@ From that point on the build environment can be used to compile the sample proje
 
 ## Maintenance Scripts
 
+For a reference and sample output see [Maintenance Script Reference](MAINTENANCE.md)
+
 - [msbuild/compact.py](msbuild/compact.py) scans a directory recursively for .ncb .sdf and .opensdf files and removes them.
 - [msbuild/validate.py](msbuild/validate.py) scans a directory recursively for .vcxproj .csproj .vbproj files and performs sanatizing checks such as ensure project files don't reference $(SolutionDir) directly.
 - [msbuild/modify-project.py](msbuild/modify-project.py) uses pythonnet and msbuild api to programtically modify projects.
+- [msbuild/convert_project.py](msbuild/convert_project.py) uses pythonnet and msbuild api to convert the project.
