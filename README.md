@@ -93,6 +93,7 @@ For a reference and sample output see [Maintenance Script Reference](MAINTENANCE
 - [msbuild/modify-project.py](msbuild/modify-project.py) uses pythonnet and msbuild api to programtically modify projects.
 - [msbuild/convert_project.py](msbuild/convert_project.py) uses pythonnet and msbuild api to convert the project.
 - [msbuild/change_project.py](msbuild/change_project.py) uses pythonnet and msbuild api to make modifications to the project.
+- [msbuild/format_project.py](msbuild/format_project.py) uses pythonnet and msbuild api to reformat the project.
 
 ## Feedback
 
