@@ -92,6 +92,7 @@ For a reference and sample output see [Maintenance Script Reference](MAINTENANCE
 - [msbuild/validate.py](msbuild/validate.py) scans a directory recursively for .vcxproj .csproj .vbproj files and performs sanatizing checks such as ensure project files don't reference $(SolutionDir) directly.
 - [msbuild/modify-project.py](msbuild/modify-project.py) uses pythonnet and msbuild api to programtically modify projects.
 - [msbuild/convert_project.py](msbuild/convert_project.py) uses pythonnet and msbuild api to convert the project.
+- [msbuild/change_project.py](msbuild/change_project.py) uses pythonnet and msbuild api to make modifications to the project.
 
 ## Feedback
 
