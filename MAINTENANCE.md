@@ -47,3 +47,19 @@ msbuild_ext.visual_studio(
         intdir = r'..\Intermediate\deploy\'
 )
 ```
+
+## Overriding properties in a msbuild file
+
+```
+python msbuild/change_project.py "E:\Workspaces\Import\msvc\deploy.vcxproj" "E:\Workspaces\Import\msvc\deploy-modified.vcxproj" --c:'$(Configuration)'=='ReleaseDebug' --p:indexer=2
+---------------------------------------------------------------------
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.default.props" />
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />  
+		<ItemGroup>
+---------------------------------------------------------------------
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.default.props" />
+  <PropertyGroup Condition="'$(Configuration)'=='ReleaseDebug'" Label="test">
+    <indexer>2</indexer>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+```
