@@ -63,3 +63,9 @@ python msbuild/change_project.py "E:\Workspaces\Import\msvc\deploy.vcxproj" "E:\
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
 ```
+
+## Formatting the project
+
+```
+python msbuild/format_project.py "E:\Workspaces\Import\msvc\deploy.vcxproj"
+```
