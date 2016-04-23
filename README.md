@@ -5,14 +5,14 @@ A python based project/solution generation system and build system, and a collec
 ## Command-line reference
 
 ```
-env help
-env build /t:serpent_project
-env build /t:serpent_project /f:BUILDENV
-env rebuild /t:serpent_project
-env rebuild /t:serpent_project /f:BUILDENV
-env clean /t:serpent_project
-env clean /t:serpent_project /f:BUILDENV
-env configure /t:serpent_project && env rebuild @BUILD_RESP
+srp help
+srp build /t:serpent_project
+srp build /t:serpent_project /f:BUILDENV
+srp rebuild /t:serpent_project
+srp rebuild /t:serpent_project /f:BUILDENV
+srp clean /t:serpent_project
+srp clean /t:serpent_project /f:BUILDENV
+srp configure /t:serpent_project && env rebuild @BUILD_RESP
 ```
 
 ## A Quick look at the language 
