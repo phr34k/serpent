@@ -15,6 +15,8 @@ srp rebuild /t:serpent_project /f:BUILDENV
 srp clean /t:serpent_project
 srp clean /t:serpent_project /f:BUILDENV
 srp configure /t:serpent_project && env rebuild @BUILD_RESP
+srp install //rserved
+srp package //rserved
 ```
 
 ## A Quick look at the language 
