@@ -1,6 +1,6 @@
 import serpent, os, subprocess, ctypes, re, sys
 
-serpent.default_toolset = 'v110'
+serpent.default_toolset = 'v140'
 serpent.projects = {}
 serpent.outdirs = {}
 serpent.configuration = {}
@@ -359,18 +359,11 @@ def msbuild(project, projects = []):
 		fobj.write("""</Project>""")
 		fobj.close();
 
-def build():
-	if serpent.action == "prebuild":
-		for x in serpent._premake:
-			x()
-		msbuild(project = "msvc/common.msproj", projects = serpent._targets)
 
-	if serpent.action == "prebuild":
-		for x in serpent._prebuild:
-			x()
-	if serpent.action == "postbuild":
-		for x in serpent._postbuild:
-			x()
+_build = serpent.build		
+
+def build():
+	_build()
 
 	if serpent.action == "cmake":
 		for y in serpent._targets:
@@ -400,19 +393,22 @@ def build():
 		msbuild(project = "msvc/common.msproj", projects = serpent._targets)
 		exit_code = subprocess.call(['C:/Windows/Microsoft.NET/Framework/v4.0.30319/msbuild.exe', 'msvc/common.msproj', '/t:Clean', '/p:Platform=Win32', '/p:ADK_PATH=E:\\Workspaces\\Import', '/verbosity:m', '/flp:Summary;Verbosity=minimal;LogFile=BUILD_SUMMARY', '/flp1:warningsonly;logfile=BUILD_WARNINGS', '/flp2:errorsonly;logfile=BUILD_ERRORS', '/maxcpucount:4'])
 		sys.exit(exit_code);
-	if serpent.action == "run":
-		print ""
-		for x in serpent._targets:
-			project_file = serpent.projects.get(x, None)
-			outdir = serpent.outdirs.get(x, None)
 
-			if not project_file: continue
-			print "Running.... %s" % project_file
-			executable =  os.path.join(os.path.dirname(project_file), outdir) + "/" + os.path.splitext(os.path.basename(project_file))[0] + ".exe"
-			print executable
-			subprocess.call([executable])
-			print ""
-			print ""
+def target_run():
+	print ""
+	for x in serpent._targets:
+		project_file = serpent.projects.get(x, None)
+		outdir = serpent.outdirs.get(x, None)
+
+		if not project_file: continue
+		print "Running.... %s" % project_file
+		executable =  os.path.join(os.path.dirname(project_file), outdir) + "/" + os.path.splitext(os.path.basename(project_file))[0] + ".exe"
+		print executable
+		subprocess.call([executable])
+		print ""
+		print ""				
 
 serpent.build = build;
+serpent.target_run = target_run;
 del build
+del target_run
