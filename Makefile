@@ -3,6 +3,7 @@ PYTHON=C:\Python27\
 
 PYTHON_DLL=$(PYTHON)python27.dll
 TARGET=bin\release\denv.exe
+TOOLSET=v140
 CC=cl
 
 SOURCES = \
@@ -21,5 +22,5 @@ $(TARGET):$(SOURCES)
         cd ..
         $(CC) -I$(PYTHON)include -DWINDOWS /Fointermediate\ /Fe$@ $** $(PYTHON)libs\python27.lib Shell32.lib
         copy $(PYTHON_DLL) bin\release\python27.dll
-        $(TARGET) rebuild /t:serpent_project --python-sdk=$(PYTHON)
+        $(TARGET) rebuild /t:serpent_project --python-sdk=$(PYTHON) --toolset=$(TOOLSET)
         del $(TARGET)      
