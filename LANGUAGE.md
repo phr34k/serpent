@@ -126,6 +126,23 @@ msbuild_ext.visual_studio_solution(
 ```
 
 
+# Reserved Constructs
 
+# Downloading files
 
+```
+serpent.download(
+	url 		= "https://github.com/phr34k/serpent/archive/master.zip"
+)
+```
+
+# Packaging artifacts ala Maven style
+
+```
+serpent.artifact(
+	id = 'com.serpent',
+	version = '123',
+	files = ['master.zip']
+)
+```
 
