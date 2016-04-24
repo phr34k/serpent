@@ -5,16 +5,16 @@ TARGET=bin\release\denv.exe
 CC=cl
 
 SOURCES = \
-		serpent/embed.cpp \
+	serpent/embed.cpp \
         serpent/FileGlobBase.cpp \
         serpent/main.cpp
 
 all: $(TARGET)
 
 $(TARGET):$(SOURCES)
-		-mkdir bin
-		-mkdir bin\release
-		-mkdir intermediate
+	-mkdir bin
+	-mkdir bin\release
+	-mkdir intermediate
         cd serpent
         $(PYTHON)python.exe package.py > embed.cpp
         cd ..
