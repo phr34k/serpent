@@ -1,5 +1,5 @@
 
-PYTHON=C:\Python27
+PYTHON=C:\Python27\\
 TARGET=bin\release\denv.exe
 CC=cl
 
