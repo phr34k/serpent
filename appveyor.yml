@@ -11,7 +11,7 @@ install:
 
 build_script:
  - python --version
- - nmake "PYTHON=%PYTHON%" "PYTHON_DLL=%PYTHON_DLL%"
+ - nmake PYTHON_DLL=%PYTHON_DLL% PYTHON=%PYTHON%
   
 artifacts:
 - path: bin/release/*
