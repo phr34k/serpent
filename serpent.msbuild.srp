@@ -1,4 +1,4 @@
-import serpent, os, subprocess, ctypes, re
+import serpent, os, subprocess, ctypes, re, sys
 
 serpent.default_toolset = 'v110'
 serpent.projects = {}
