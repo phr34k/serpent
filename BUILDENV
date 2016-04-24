@@ -1,8 +1,7 @@
-import os
 
 serpent.option(
    trigger     = "python-sdk",
-   value       = "C:\\Python27-Clean",
+   value       = "C:\\Python27\\",
    description = "Python sdk location"
 )
 
@@ -24,8 +23,8 @@ msbuild_ext.visual_studio(
 	defines = ['WINDOWS'],
 	outdir = 'Bin/Release/',
 	intdir = 'Intermediate/env/',
-	includes = [os.path.join(serpent.triggers['python-sdk'], 'include')],
-	libs = [os.path.join(serpent.triggers['python-sdk'], 'libs/python27.lib')]
+	includes = [serpent.path.join(serpent.triggers['python-sdk'], 'include')],
+	libs = [serpent.path.join(serpent.triggers['python-sdk'], 'libs/python27.lib')]
 )
 
 serpent.include('samples/cpp/BUILDENV')
