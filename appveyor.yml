@@ -9,8 +9,8 @@ install:
   "\"C:\\Program Files\\Microsoft SDKs\\Windows\\v7.1\\Bin\\SetEnv.cmd\" /x86"
 
 build_script:
-  python --version
-  nmake
+ - python --version
+ - nmake
   
 artifacts:
 - path: bin/release/*
