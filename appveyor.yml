@@ -8,12 +8,6 @@ environment:
       PYTHONPATH: "C:\\Python27\\Lib"
       PYTHONHOME: "C:\\Python27\\"
       
-on_finish:
-- ps: $blockRdp = $true; iex ((new-object net.webclient).DownloadString('https://raw.githubusercontent.com/appveyor/ci/master/scripts/enable-rdp.ps1'))
-
-install:
-  call "C:\Program Files (x86)\Microsoft Visual Studio 14.0\VC\vcvarsall.bat" x86
-
 build_script:
  - python --version
  - nmake PYTHON_DLL=%PYTHON_DLL% PYTHON=%PYTHON%
