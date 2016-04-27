@@ -375,7 +375,7 @@ def build():
 			if y in serpent._internal: y=serpent._internal[y]; serpent._targets = list(set(serpent._targets) | set(y.depends or []))
 		for x in serpent._premake: x()
 		msbuild(project = "msvc/common.msproj", projects = serpent._targets)
-		exit_code = subprocess.call(['C:/Windows/Microsoft.NET/Framework/v4.0.30319/msbuild.exe', 'msvc/common.msproj', '/t:Build', '/p:Platform=Win32', '/p:ADK_PATH=E:\\Workspaces\\Import', '/verbosity:m',
+		exit_code = subprocess.call(['msbuild', 'msvc/common.msproj', '/t:Build', '/p:Platform=Win32', '/p:ADK_PATH=E:\\Workspaces\\Import', '/verbosity:m',
 		'/flp:Summary;Verbosity=minimal;LogFile=BUILD_SUMMARY', '/flp1:warningsonly;logfile=BUILD_WARNINGS', '/flp2:errorsonly;logfile=BUILD_ERRORS', '/maxcpucount:4'])
 		sys.exit(exit_code);
 	if serpent.action == "rebuild":
@@ -383,7 +383,7 @@ def build():
 			if y in serpent._internal: y=serpent._internal[y]; serpent._targets = list(set(serpent._targets) | set(y.depends or []))
 		for x in serpent._premake: x()
 		msbuild(project = "msvc/common.msproj", projects = serpent._targets)
-		exit_code = subprocess.call(['C:/Windows/Microsoft.NET/Framework/v4.0.30319/msbuild.exe', 'msvc/common.msproj', '/t:Rebuild', '/p:Platform=Win32', '/p:ADK_PATH=E:\\Workspaces\\Import', '/verbosity:m',
+		exit_code = subprocess.call(['msbuild', 'msvc/common.msproj', '/t:Rebuild', '/p:Platform=Win32', '/p:ADK_PATH=E:\\Workspaces\\Import', '/verbosity:m',
 		'/flp:Summary;Verbosity=minimal;LogFile=BUILD_SUMMARY', '/flp1:warningsonly;logfile=BUILD_WARNINGS', '/flp2:errorsonly;logfile=BUILD_ERRORS', '/maxcpucount:4'])
 		sys.exit(exit_code);
 	if serpent.action == "clean":
@@ -391,7 +391,7 @@ def build():
 			if y in serpent._internal: y=serpent._internal[y]; serpent._targets = list(set(serpent._targets) | set(y.depends or []))
 		for x in serpent._premake: x()
 		msbuild(project = "msvc/common.msproj", projects = serpent._targets)
-		exit_code = subprocess.call(['C:/Windows/Microsoft.NET/Framework/v4.0.30319/msbuild.exe', 'msvc/common.msproj', '/t:Clean', '/p:Platform=Win32', '/p:ADK_PATH=E:\\Workspaces\\Import', '/verbosity:m', '/flp:Summary;Verbosity=minimal;LogFile=BUILD_SUMMARY', '/flp1:warningsonly;logfile=BUILD_WARNINGS', '/flp2:errorsonly;logfile=BUILD_ERRORS', '/maxcpucount:4'])
+		exit_code = subprocess.call(['msbuild', 'msvc/common.msproj', '/t:Clean', '/p:Platform=Win32', '/p:ADK_PATH=E:\\Workspaces\\Import', '/verbosity:m', '/flp:Summary;Verbosity=minimal;LogFile=BUILD_SUMMARY', '/flp1:warningsonly;logfile=BUILD_WARNINGS', '/flp2:errorsonly;logfile=BUILD_ERRORS', '/maxcpucount:4'])
 		sys.exit(exit_code);
 
 def target_run():
