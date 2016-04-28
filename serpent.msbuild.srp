@@ -1,6 +1,7 @@
 import serpent, os, subprocess, ctypes, re, sys
 
-serpent.default_toolset = 'v140'
+serpent.default_toolversion = '4.0'
+serpent.default_toolset = 'v110'
 serpent.projects = {}
 serpent.outdirs = {}
 serpent.configuration = {}
@@ -8,20 +9,22 @@ serpent._internal = {}
 serpent._configurations = ['Release']
 
 class _external:
-	def __init__(self, project, name, guid, configurations = None, depends = None):
+	def __init__(self, project, name, guid, configurations = None, depends = None, options = []):
 		self.name = name
 		self.project = project
 		self.configurations = configurations
 		self.guid = guid
 		self.depends = depends
+		self.options = options
 
 class _project:
-	def __init__(self, project, name, guid, configurations = None, depends = None):
+	def __init__(self, project, name, guid, configurations = None, depends = None, options = []):
 		self.name = name
 		self.project = project
 		self.configurations = configurations
 		self.guid = guid
 		self.depends = depends
+		self.options = options
 
 class macro:
 	def __init__(self, value):
@@ -29,7 +32,7 @@ class macro:
 	def __str__(self):
 		return self.value
 
-def external(project, name, configuration = serpent._configurations, depends = [] ):
+def external(project, name, configuration = serpent._configurations, depends = [], options = [] ):
 	if not os.path.exists(project):
 		raise Exception("Path %s does not exists" % project )
 	if serpent.projects.get(name, None) != None:
@@ -47,7 +50,7 @@ def external(project, name, configuration = serpent._configurations, depends = [
 	match = re.search("\<ProjectGuid\>\{([A-Za-z0-9\-]+)\}\<\/ProjectGuid\>", content)
 	if match is not None:
 		guid = match.groups(1)[0]
-	serpent._internal[name] = _external(project, name, guid, configuration, depends)
+	serpent._internal[name] = _external(project, name, guid, configuration, depends, options)
 	del content
 	del match
 
@@ -318,7 +321,8 @@ def msbuild(project, projects = []):
 			if x is not None:
 				for y in x.configurations or serpent._configurations:			
 					fobj.write("    <ProjectToBuild Include=\"%s\">\n" % os.path.relpath(x.project, os.path.basename(project)));
-					fobj.write("    <AdditionalProperties>Configuration=%s</AdditionalProperties>\n" % y)
+					options = ';'.join(x.options)
+					fobj.write("    <AdditionalProperties>Configuration=%s;%s</AdditionalProperties>\n" % (y, options))  
 					fobj.write("    </ProjectToBuild>\n")
 
 		fobj.write("""
