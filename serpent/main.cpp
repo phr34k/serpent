@@ -448,6 +448,17 @@ std::string get_environment_var()
 	return std::string(userprofile);
 }
 
+void load_serpent_home_dir()
+{
+	char userprofile[2048]= {0};  
+    if( GetEnvironmentVariable("SERPENTHOME", userprofile, 2048) == 0 ) {
+    	Py_SetPythonHome(0);
+    } else {
+    	ExpandEnvironmentStrings("%SERPENTHOME%", userprofile, 2048);
+    	Py_SetPythonHome(userprofile);
+    }
+}
+
 int main(int argc, char** argv)
 {
 	//Create the directory
@@ -465,6 +476,9 @@ int main(int argc, char** argv)
 	_getcwd(workingDirectory, 2048);
 
     Py_Initialize();
+    load_serpent_home_dir();
+
+
 
 	options = PyDict_New();
 	targets = PyList_New(0);
