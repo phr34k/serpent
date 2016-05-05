@@ -74,8 +74,10 @@ def cmake(name, project, folder, input, arguments = [], configuration = serpent.
 	serpent.target( name = name )
 	del _premake
 
-def visual_studio(project, files, name, deps = [], toolset=serpent.default_toolset, defines = [], includes = [], libs = [], compileopts = [], linkopts = [],  intdir='Intermediate\\', outdir='Release\\', resources=[], shared=False, runtime = 'StaticRuntime', depends = [] ):
-
+def visual_studio(project, files, name, deps = [], toolversion=serpent.default_toolversion, toolset=serpent.default_toolset, defines = [], includes = [], libs = [], compileopts = [], linkopts = [],  intdir='Intermediate\\', outdir='Release\\', resources=[], shared=False, runtime = 'StaticRuntime', depends = [] ):
+	project = os.path.abspath(project)
+	intdir = os.path.abspath(intdir)
+	outdir = os.path.abspath(outdir)
 	intdir = os.path.relpath(intdir, os.path.dirname(project))
 	outdir = os.path.relpath(outdir, os.path.dirname(project))
 	projdir = os.path.dirname(project)
@@ -103,10 +105,10 @@ def visual_studio(project, files, name, deps = [], toolset=serpent.default_tools
 		if not os.path.exists(os.path.dirname(project)): os.mkdir(os.path.dirname(project))
 		fobj = open(project, 'w')
 		fobj.write("""
-<Project DefaultTargets="Build" ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+<Project DefaultTargets="Build" ToolsVersion="%s" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <PropertyGroup>
-    <ConfigurationType>%s</ConfigurationType>
-    <PlatformToolset>%s</PlatformToolset>
+  	<PlatformToolset>%s</PlatformToolset>
+    <ConfigurationType>%s</ConfigurationType>    
     <Configuration>Release</Configuration>
     <OutDir>%s</OutDir>
     <IntDir>%s</IntDir>    
@@ -132,7 +134,7 @@ def visual_studio(project, files, name, deps = [], toolset=serpent.default_tools
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.default.props" />
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
-		""" %  (_shared, toolset, outdir, intdir, _compileopts, ";".join(defines), ";".join(includes), runtime, _linkopts, ";".join(libs)))
+		""" %  (toolversion, toolset, _shared, toolset, outdir, intdir, _compileopts, ";".join(defines), ";".join(includes), runtime, _linkopts, ";".join(libs)))
 		print _shared
 
 		fobj.write("<ItemGroup>\n");
@@ -151,12 +153,16 @@ def visual_studio(project, files, name, deps = [], toolset=serpent.default_tools
 		""")
 		fobj.close();
 
-def qt_project(project, files, name, deps = [], toolset=serpent.default_toolset, defines = [], includes = [], libs = [], compileopts = [], linkopts = [],  intdir='Intermediate\\', outdir='Release\\', uifiles = [], uiheaders = [], uiresource = [], resources = [], depends = []):
+def qt_project(project, files, name, deps = [], toolversion=serpent.default_toolversion, toolset=serpent.default_toolset, defines = [], includes = [], libs = [], compileopts = [], linkopts = [],  intdir='Intermediate\\', outdir='Release\\', uifiles = [], uiheaders = [], uiresource = [], resources = [], depends = []):
+	project = os.path.abspath(project)
+	intdir = os.path.abspath(intdir)
+	outdir = os.path.abspath(outdir)
+	intdir = os.path.relpath(intdir, os.path.dirname(project))
+	outdir = os.path.relpath(outdir, os.path.dirname(project))
 	if serpent.projects.get(name, None) != None:
 		raise Exception("Duplicate name")
 
-	intdir = os.path.relpath(intdir, os.path.dirname(project))
-	outdir = os.path.relpath(outdir, os.path.dirname(project))
+	
 	projdir = os.path.dirname(project)
 
 	serpent.projects[name] = os.path.abspath(project);
@@ -172,7 +178,7 @@ def qt_project(project, files, name, deps = [], toolset=serpent.default_toolset,
 		if not os.path.exists(os.path.dirname(project)): os.mkdir(os.path.dirname(project))
 		fobj = open(project, 'w')
 		fobj.write("""
-<Project DefaultTargets="Build" ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+<Project DefaultTargets="Build" ToolsVersion="%s" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <PropertyGroup>
     <ConfigurationType>Application</ConfigurationType>
     <PlatformToolset>%s</PlatformToolset>
@@ -202,7 +208,7 @@ def qt_project(project, files, name, deps = [], toolset=serpent.default_toolset,
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.default.props" />
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />  
-		""" %  (toolset, outdir, intdir, _compileopts, ";".join(defines), ";".join(includes), _linkopts, ";".join(libs)))
+		""" %  (toolversion, toolset, outdir, intdir, _compileopts, ";".join(defines), ";".join(includes), _linkopts, ";".join(libs)))
 
 		fobj.write("<ItemGroup>\n");
 		for x in files:			
@@ -253,6 +259,7 @@ def qt_project(project, files, name, deps = [], toolset=serpent.default_toolset,
 		fobj.close();
 
 def visual_studio_debug_options(project, executable = "", arguments = "", workingdir = ""):
+	project = os.path.abspath(project);
 	projdir = os.path.dirname(project)
 	if not os.path.exists(projdir): os.mkdir(projdir)		
 	userFile = os.path.abspath(project + '.user');
