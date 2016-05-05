@@ -134,7 +134,7 @@ def visual_studio(project, files, name, deps = [], toolversion=serpent.default_t
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.default.props" />
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
-		""" %  (toolversion, toolset, _shared, toolset, outdir, intdir, _compileopts, ";".join(defines), ";".join(includes), runtime, _linkopts, ";".join(libs)))
+		""" %  (toolversion, toolset, _shared, outdir, intdir, _compileopts, ";".join(defines), ";".join(includes), runtime, _linkopts, ";".join(libs)))
 		print _shared
 
 		fobj.write("<ItemGroup>\n");
