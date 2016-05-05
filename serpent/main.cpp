@@ -21,6 +21,7 @@ PyObject *targets = 0;
 PyObject *platforms = 0;
 PyObject *main_dict = 0;
 
+bool _debug = false;
 std::map<std::string, PyObject*>   _modules_loaded;
 std::map<std::string, std::string> _options_desc;
 std::map<std::string, std::string> _options_value;
@@ -36,11 +37,13 @@ static PyObject* emb_load(PyObject *self, PyObject *args)
 	char abspath[4096];
 	_fullpath(abspath, command, 4096);
 	std::string dir(abspath, strrchr(abspath,'\\') > strrchr(abspath, '/') ? strrchr(abspath, '\\') : strrchr(abspath, '/'));
-	printf("%s\n", abspath);    
 
 	//Lazy load the module...
 	if( _modules_loaded.find(abspath) == _modules_loaded.end() ) {		
-		printf("Loading new module %s\r\n", abspath);
+		if( _debug == true ) {
+			printf("Loading new module %s\n", abspath);
+		}
+
 		std::ifstream t(abspath);
 		std::string str((std::istreambuf_iterator<char>(t)),
 						 std::istreambuf_iterator<char>());
@@ -57,7 +60,9 @@ static PyObject* emb_load(PyObject *self, PyObject *args)
 		_modules_loaded[abspath] = pNewMod;
 		return pNewMod;
 	} else {
-		printf("Loading existing module %s\r\n", abspath);
+		if( _debug == true ) {
+			printf("Loading existing module %s\n", abspath);
+		}		
 		Py_INCREF(_modules_loaded.find(abspath)->second);
 		return _modules_loaded.find(abspath)->second;
 	}	
@@ -169,19 +174,20 @@ static PyObject* emb_run(PyObject *self, PyObject *args)
     if (!PyArg_ParseTuple(args, "s", &command))
         return Py_BuildValue("");
 
-	//Lazy load the module...
-	if( _modules_loaded.find(command) == _modules_loaded.end() ) {
-
-		char abspath[4096];
-		_fullpath(abspath, command, 4096);
+	char abspath[4096];
+	_fullpath(abspath, command, 4096);
+	if( _modules_loaded.find(abspath) == _modules_loaded.end() ) 
+	{
 		std::string dir(abspath, strrchr(abspath,'\\') > strrchr(abspath, '/') ? strrchr(abspath, '\\') : strrchr(abspath, '/'));
+		if( _debug == true ) {
+			printf("Loading new build file %s\n", abspath);
+		}		
 
 		std::ifstream t(command);
-		std::string str((std::istreambuf_iterator<char>(t)),
-						 std::istreambuf_iterator<char>());
+		std::string str((std::istreambuf_iterator<char>(t)), std::istreambuf_iterator<char>());
 
 		char workingDirectory[2048];
-		_getcwd(workingDirectory, 2048);		
+		_getcwd(workingDirectory, 2048);
 		SetCurrentDirectoryA(dir.c_str());
 
 		PyObject* script = PyObject_GetAttrString(obj, "_SERPENT_SCRIPT");
@@ -202,9 +208,13 @@ static PyObject* emb_run(PyObject *self, PyObject *args)
 		SetCurrentDirectoryA(workingDirectory);
 		PyObject_SetAttrString(obj, "_WORKING_DIR", workingdir);
 		PyObject_SetAttrString(obj, "_SERPENT_SCRIPT", script);
+		_modules_loaded[abspath] = pNewMod;
 		return pNewMod;
 	} else {
-		return _modules_loaded.find(command)->second;
+		if( _debug == true ) {
+			printf("Loading exiting build file %s\n", abspath);
+		}
+		return _modules_loaded.find(abspath)->second;
 	}	
 }
 
@@ -306,6 +316,9 @@ bool parse_argv(char** argv, int argc)
 		else if( argv[i][0] == '/' && argv[i][1] == 'f' && argv[i][2] == ':' ) {
 			file = argv[i] + 3;
 		}
+		else if( argv[i][0] == '-' && argv[i][1] == '-' && strchr(&argv[i][2], 't') != 0 ) {
+			_debug = true;
+		}
 		else if( argv[i][0] == '-' && argv[i][1] == '-' && strchr(&argv[i][2], '=') != 0 ) {
 			std::string name(&argv[i][2], strchr(&argv[i][2], '='));
 			std::string value(strchr(&argv[i][2], '=') + 1);
@@ -342,8 +355,20 @@ bool parse_responsefile(const char* responseFile)
 	return false;
 }
 
+std::string get_environment_var()
+{
+	char userprofile[2048]= {0};
+	GetEnvironmentVariableA("USERPROFILE", userprofile, 2048);
+	return std::string(userprofile);
+}
+
 int main(int argc, char** argv)
 {
+	//Create the directory
+	std::string var = get_environment_var();
+	var.append("/.srp/");
+	CreateDirectory(var.c_str(), false);
+
 	char workingDirectory[2048];
 	_getcwd(workingDirectory, 2048);
 
@@ -367,15 +392,28 @@ int main(int argc, char** argv)
 	PyObject* serpent_dictionary = PyModule_GetDict(obj);
 	PyDict_SetItemString(serpent_dictionary, "__builtins__", PyEval_GetBuiltins());
 
-
-
-	extern std::string data;
-	
+	extern std::string data;	
 	PyObject* pValue = PyRun_String(data.c_str(), Py_file_input, serpent_dictionary, serpent_dictionary);
 	if (pValue == NULL) {
 	   PyErr_Print();
 	}
 	
+	PyObject* tuple = PyTuple_New(1);
+	PyTuple_SetItem(tuple, 0, Py_BuildValue("s", file.c_str()));
+	emb_run(0, tuple);
+
+	PyObject* pFunc = PyObject_GetAttrString(obj, (char*)"build");
+	if( pFunc )
+	{
+		if (PyCallable_Check(pFunc)) {
+			PyObject_CallObject(pFunc,0);
+			PyErr_Print();		
+		} else {
+			PyErr_Print();
+		}
+	}	
+
+	/*
 	std::ifstream t(file.c_str());
 	std::string str((std::istreambuf_iterator<char>(t)), std::istreambuf_iterator<char>());
 	PyObject* main_module = PyImport_AddModule("__main__");
@@ -400,7 +438,10 @@ int main(int argc, char** argv)
 			}
 		}		
 	}
+	*/
+
 	Py_Finalize();
+
 
 	if( argv[1] != 0 && strcmp(argv[1], "help") == 0)
 	{
