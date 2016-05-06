@@ -9,19 +9,22 @@ _premake = []
 _install = []
 _artifacts = []
 
+def enum(**enums):
+    return type('Enum', (), enums)
+
 def prebuild(func):
    def call():
-		func()
+      func()
    def empty():
-		pass
+      pass
    _prebuild.append(call)
    return empty
 
 def postbuild(func):
    def call():
-		func()
+      func()
    def empty():
-		pass
+      pass
    _postbuild.append(call)
    return empty
 
