@@ -12,8 +12,6 @@ Application=1
 DynamicLibrary=2
 StaticLibrary=3
 
-
-
 class _external:
 	def __init__(self, project, name, guid, configurations = None, depends = None, options = []):
 		self.name = name
@@ -80,7 +78,7 @@ def cmake(name, project, folder, input, arguments = [], configuration = serpent.
 	serpent.target( name = name )
 	del _premake
 
-def visual_studio(project, files, name, deps = [], toolversion=serpent.default_toolversion, toolset=serpent.default_toolset, defines = [], includes = [], libs = [], compileopts = [], linkopts = [],  intdir='Intermediate\\', outdir='Release\\', resources=[], shared=Application, runtime = 'StaticRuntime', depends = [] ):
+def visual_studio(project, files, name, deps = [], toolversion=serpent.default_toolversion, toolset=serpent.default_toolset, defines = [], includes = [], libs = [], compileopts = [], linkopts = [],  intdir='Intermediate\\', outdir='Release\\', resources=[], shared=Application, runtime = 'StaticRuntime', depends = [], configuration = serpent._configurations ):
 	project = os.path.abspath(project)
 	intdir = os.path.abspath(intdir)
 	outdir = os.path.abspath(outdir)
@@ -89,9 +87,21 @@ def visual_studio(project, files, name, deps = [], toolversion=serpent.default_t
 	for x in range(len(includes)):
 		if includes[x].startswith('./'):
 			includes[x] = os.path.relpath(includes[x], os.path.dirname(project))
+		elif serpent.path.isabs(includes[x]) == False:
+			includes[x] = os.path.relpath(includes[x], os.path.dirname(project))
+	for x in range(len(files)):
+		if files[x].startswith('./'):
+			files[x] = os.path.relpath(files[x], os.path.dirname(project))
+		elif serpent.path.isabs(files[x]) == False:
+			files[x] = os.path.relpath(files[x], os.path.dirname(project))
+	for x in range(len(resources)):
+		if resources[x].startswith('./'):
+			resources[x] = os.path.relpath(resources[x], os.path.dirname(project))
+		elif serpent.path.isabs(resources[x]) == False:
+			resources[x] = os.path.relpath(resources[x], os.path.dirname(project))			
 
 	projdir = os.path.dirname(project)
-	serpent._internal[name] = _external(project, name, '380D6B49-C7EA-4F3A-8383-B50CAC3F054D', depends=depends)
+	serpent._internal[name] = _external(project, name, '380D6B49-C7EA-4F3A-8383-B50CAC3F054D', depends=depends, configurations = configuration )
 	
 	if runtime not in ['StaticRuntime', 'DynamicRuntime']:
 		raise Exception("Runtime not expected")
@@ -140,26 +150,33 @@ def visual_studio(project, files, name, deps = [], toolversion=serpent.default_t
       <AdditionalDependencies>%s</AdditionalDependencies>
       <SubSystem>Console</SubSystem>
     </Link>    
-  </ItemDefinitionGroup>  
-  <ItemGroup>
-    <ProjectConfiguration Include="Release|Win32">
-      <Configuration>Release</Configuration>
+  </ItemDefinitionGroup>    
+		""" %  (toolversion, toolset, _shared, outdir, intdir, _compileopts, ";".join(defines), ";".join(includes), runtime, _linkopts, ";".join(libs)))
+
+		fobj.write("""<ItemGroup>""")
+
+		for x in configuration:
+			fobj.write("""
+	<ProjectConfiguration Include="%s|Win32">
+      <Configuration>%s</Configuration>
       <Platform>Win32</Platform>
     </ProjectConfiguration>
-  </ItemGroup>
+    		""" % (x,x))
+
+		fobj.write("""</ItemGroup>""")
+		fobj.write("""
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.default.props" />
-  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
-		""" %  (toolversion, toolset, _shared, outdir, intdir, _compileopts, ";".join(defines), ";".join(includes), runtime, _linkopts, ";".join(libs)))
-		print _shared
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />			
+		""")
 
 		fobj.write("<ItemGroup>\n");
-		for x in files:			
-			fobj.write("    <ClCompile Include=\"%s\" />" % os.path.relpath(x, projdir));
+		for x in files:
+			fobj.write("    <ClCompile Include=\"%s\" />" % x);
 		fobj.write("</ItemGroup>\n");						
 
 		fobj.write("<ItemGroup>\n");
 		for x in resources:			
-			fobj.write("    <ResourceCompile Include=\"%s\" />\n" % os.path.relpath(x, projdir));
+			fobj.write("    <ResourceCompile Include=\"%s\" />\n" % x);
 		fobj.write("</ItemGroup>\n");	
 
 		fobj.write("""
@@ -401,9 +418,14 @@ def build():
 			if y in serpent._internal: y=serpent._internal[y]
 			serpent._targets = list(set(serpent._targets) | set(y.depends))		
 		for x in serpent._premake: x()
-	if serpent.action == "build":
-		for y in serpent._targets:
-			if y in serpent._internal: y=serpent._internal[y]; serpent._targets = list(set(serpent._targets) | set(y.depends or []))
+	if serpent.action == "build":		
+		p = set(serpent._targets)
+		if "*" in serpent._targets:			
+			for x in serpent._internal: p.add(x)
+			serpent._targets = list(p)
+		else:
+			for y in serpent._targets:
+				if y in serpent._internal: y=serpent._internal[y]; serpent._targets = list(set(serpent._targets) | set(y.depends or []))
 		for x in serpent._premake: x()
 		msbuild(project = "msvc/common.msproj", projects = serpent._targets)
 		exit_code = subprocess.call(['msbuild', 'msvc/common.msproj', '/t:Build', '/p:Platform=Win32', '/p:ADK_PATH=E:\\Workspaces\\Import', '/verbosity:m',
