@@ -143,6 +143,8 @@ def cmake(name, project, folder, input, arguments = [], configuration = serpent.
 	del _premake
 
 
+def entity_replace(str):
+	return str.replace("<", "&lt;").replace(">", "&gt;")
 
 def visual_studio(project, files, name, deps = [], toolversion=serpent.default_toolversion, toolset=serpent.default_toolset, defines = [], includes = [], libs = [], libdirs = [], compileopts = [], linkopts = [],  intdir='Intermediate\\', outdir='Release\\', resources=[], shared=Application, runtime = 'StaticRuntime', depends = [], configuration = serpent._configurations, condition = [] ):
 	project = os.path.abspath(project)
@@ -180,6 +182,8 @@ def visual_studio(project, files, name, deps = [], toolversion=serpent.default_t
 		elif serpent.path.isabs(libs[x]) == False:
 			libs[x] = os.path.relpath(libs[x], os.path.dirname(project))
 			print libs[x]
+	for x in range(len(defines)):
+		defines[x] = entity_replace(defines[x])
 
 	projdir = os.path.dirname(project)
 	serpent._internal[name] = _external(project, name, '380D6B49-C7EA-4F3A-8383-B50CAC3F054D', depends=depends, configurations = configuration )
