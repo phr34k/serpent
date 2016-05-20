@@ -151,8 +151,10 @@ def visual_studio_filters(project, toolversion=serpent.default_toolversion, file
 	project = os.path.abspath(project)
 	project = project + ".filters"
 	fobj = StringIO.StringIO()	
-	fobj.write('<?xml version="1.0" encoding="utf-8"?>')
-	fobj.write('<Project DefaultTargets="Build" ToolsVersion="%s" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">' % toolversion)
+	fobj.write('<?xml version="1.0" encoding="utf-8"?>\n')
+	fobj.write('<Project DefaultTargets="Build" ToolsVersion="%s" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">\n' % toolversion)
+
+	'''
   	fobj.write("""<ItemGroup>
     <Filter Include="Source Files">
       <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
@@ -167,12 +169,42 @@ def visual_studio_filters(project, toolversion=serpent.default_toolversion, file
       <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav</Extensions>
     </Filter>
   </ItemGroup>""")
+	'''
 
+  	directory = {}
+  	for x in files:
+  		x = os.path.dirname(x.replace("..\\","").replace(".\\",""))
+  		directory[x] = serpent.guid()
+  		array = x.split("\\")
+  		path = array[0]
+  		for z in array[1:]:
+  			if path not in directory:
+  				directory[path] = serpent.guid();
+  			path = path + "\\" + z
+
+	fobj.write("<ItemGroup>\n");
+	for x in sorted(directory):	
+		fobj.write("    <Filter Include=\"%s\">\n" % x);
+		fobj.write("    	<UniqueIdentifier>{%s}</UniqueIdentifier>\n" % str(directory[x]));
+		fobj.write("    	<Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;cpp;c;cc;cxx;def;odl;idl;hpj;bat;asm;asmx;h;hpp;hxx;hm;inl;inc;xsd</Extensions>\n");
+		fobj.write("    </Filter>\n");
+	fobj.write("</ItemGroup>\n");
+
+	'''
 	fobj.write("<ItemGroup>\n");
 	for x in files:
 		fobj.write("    <ClCompile Include=\"%s\">\n" % x);
 		fobj.write("    <Filter>Source Files</Filter>\n");
-		fobj.write("    </ClCompile>\n");	
+		fobj.write("    </ClCompile>\n");
+	fobj.write("</ItemGroup>\n");
+	'''
+
+	fobj.write("<ItemGroup>\n");
+	for x in files:
+  		z = os.path.dirname(x.replace("..\\","").replace(".\\",""))
+  		fobj.write("    <ClCompile Include=\"%s\">\n" % x);
+		fobj.write("    <Filter>%s</Filter>\n" % z);
+		fobj.write("    </ClCompile>\n");
 	fobj.write("</ItemGroup>\n");
 
 	fobj.write('</Project>')
