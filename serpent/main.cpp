@@ -346,6 +346,18 @@ static PyObject* emb_junction(PyObject *self, PyObject *args)
 }
 #endif
 
+
+static PyObject* emb_guid(PyObject *self, PyObject *args)
+{
+	unsigned char *guidStr = 0x00;
+	GUID *pguid = 0x00;
+	pguid = new GUID;
+	CoCreateGuid(pguid);
+	UuidToString(pguid, &guidStr); 
+	delete pguid;	
+    return Py_BuildValue("s", guidStr);
+}
+
 static PyObject* emb_run(PyObject *self, PyObject *args)
 {
 
@@ -423,7 +435,8 @@ static PyMethodDef EmbMethods[] = {
 	{"load", (PyCFunction)emb_load, METH_VARARGS},
     {"info", (PyCFunction)emb_info, METH_VARARGS},
 	{"glob", (PyCFunction)emb_glob, METH_VARARGS | METH_KEYWORDS},
-	{"include", (PyCFunction)emb_run, METH_VARARGS},	
+	{"include", (PyCFunction)emb_run, METH_VARARGS},
+	{"guid", (PyCFunction)emb_guid, METH_VARARGS},	
 	#ifdef HAVE_JUNCTIONS
 	{"junction", (PyCFunction)emb_junction, METH_VARARGS},	
 	#endif 	
