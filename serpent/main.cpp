@@ -360,8 +360,6 @@ static PyObject* emb_guid(PyObject *self, PyObject *args)
 
 static PyObject* emb_run(PyObject *self, PyObject *args)
 {
-
-
     const char *command;
     if (!PyArg_ParseTuple(args, "s", &command))
         return Py_BuildValue("");
@@ -428,6 +426,67 @@ static PyObject* emb_run(PyObject *self, PyObject *args)
 	}	
 }
 
+
+static PyObject* emb_repository_download(PyObject *self, PyObject *args)
+{
+	const char *id, *version;
+    if (!PyArg_ParseTuple(args, "ss", &id, &version))
+        return Py_BuildValue("");
+
+	char userprofile[2048]= {0};
+    if( GetEnvironmentVariable("SERPENTREPO", userprofile, 2048) != 0 ) 
+    {
+    	ExpandEnvironmentStrings("%SERPENTREPO%", userprofile, 2048);
+    	printf("searching %s for %s %s\r\n", userprofile, id, version);
+
+		#ifdef HAVE_CURL
+    	std::string url;
+    	url.append(userprofile);
+    	url.append(id);
+    	url.append(".");
+    	url.append(version);
+    	url.append(".tar.bz2");
+
+    	std::string file;
+    	file.append("./.srp/");
+    	file.append(id);
+    	file.append(".");
+    	file.append(version);
+    	file.append(".tar.bz2");    	
+
+		std::string dbuffer3;
+		curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
+  		char errbuf[CURL_ERROR_SIZE];
+  		curl_easy_setopt(curl, CURLOPT_ERRORBUFFER, errbuf);
+		curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, 0L);
+   		curl_easy_setopt(curl, CURLOPT_HEADER, 0);  
+   		curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1);  
+   		curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, writer2);  
+	   	curl_easy_setopt(curl, CURLOPT_WRITEDATA, &dbuffer3);
+   		result = curl_easy_perform(curl);
+   		long http_code = 0;
+		curl_easy_getinfo (curl, CURLINFO_RESPONSE_CODE, &http_code);
+
+	    if (result == CURLE_OK && http_code == 200 )  
+	    {  						
+		    std::ofstream out(file.c_str(),std::ofstream::binary);
+		    out << dbuffer3;
+		    out.close();
+	    }
+	    else
+	    {
+	    	return Py_BuildValue("");
+	    }
+	    #endif
+
+	    return Py_BuildValue("");
+    }	
+    else
+    {
+    	return Py_BuildValue("");
+    }
+}
+
 static PyMethodDef EmbMethods[] = {
 	
 	{"option", (PyCFunction)emb_option, METH_VARARGS | METH_KEYWORDS},
@@ -436,7 +495,8 @@ static PyMethodDef EmbMethods[] = {
     {"info", (PyCFunction)emb_info, METH_VARARGS},
 	{"glob", (PyCFunction)emb_glob, METH_VARARGS | METH_KEYWORDS},
 	{"include", (PyCFunction)emb_run, METH_VARARGS},
-	{"guid", (PyCFunction)emb_guid, METH_VARARGS},	
+	{"guid", (PyCFunction)emb_guid, METH_VARARGS},
+	{"repository_search", (PyCFunction)emb_repository_download, METH_VARARGS},	
 	#ifdef HAVE_JUNCTIONS
 	{"junction", (PyCFunction)emb_junction, METH_VARARGS},	
 	#endif 	
@@ -578,7 +638,7 @@ std::string get_environment_var()
 
 void load_serpent_home_dir()
 {
-	char userprofile[2048]= {0};  
+	char userprofile[2048]= {0};
     if( GetEnvironmentVariable("SERPENTHOME", userprofile, 2048) == 0 ) {
     	Py_SetPythonHome(0);
     } else {
