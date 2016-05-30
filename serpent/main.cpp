@@ -89,6 +89,7 @@ PyObject *targets = 0;
 PyObject *platforms = 0;
 PyObject *main_dict = 0;
 
+bool _nolog = false;
 bool _debug = false;
 std::map<std::string, PyObject*>   _modules_loaded;
 std::map<std::string, std::string> _options_desc;
@@ -392,11 +393,20 @@ static PyObject* emb_run(PyObject *self, PyObject *args)
 	    len = strlen(szPath);
 		if (szPath[len-1] == '\\') szPath[--len] = '\0';  // Remove trailing backslash
 		try {
-			CreateJunction(szLink, szPath);
+       if( _debug == true ) {
+          printf("Creating junction %s %s\r\n", szLink, szPath);
+       }
+			 CreateJunction(szLink, szPath);
 		} catch(...) {
-
+       if( _debug == true ) {
+          printf("Exception when trying to make junction %s %s\r\n", szLink, szPath);
+       }
 		}
-		#endif
+		#else
+    if( _debug == true ) {
+      printf("Junctions are disabled in this version\r\n");
+    }
+    #endif
 
 		PyObject* script = PyObject_GetAttrString(obj, "_SERPENT_SCRIPT");
 		PyObject_SetAttrString(obj, "_SERPENT_SCRIPT", Py_BuildValue("s",command));
@@ -404,7 +414,7 @@ static PyObject* emb_run(PyObject *self, PyObject *args)
 		PyObject_SetAttrString(obj, "_WORKING_DIR", Py_BuildValue("s",abspath));
 
 		PyObject *pName, *pModule, *pArgs, *pValue, *pFunc;
-		PyObject *pNewMod = PyModule_New("");
+		PyObject *pNewMod = PyModule_New(command);
 		PyModule_AddStringConstant(pNewMod, "__file__", command);
 		PyObject *pLocal = PyModule_GetDict(pNewMod);
 		PyDict_SetItemString(pLocal, "serpent", obj);
@@ -417,6 +427,7 @@ static PyObject* emb_run(PyObject *self, PyObject *args)
 		PyObject_SetAttrString(obj, "_WORKING_DIR", workingdir);
 		PyObject_SetAttrString(obj, "_SERPENT_SCRIPT", script);
 		_modules_loaded[abspath] = pNewMod;
+    Py_INCREF(pNewMod);
 		return pNewMod;
 	} else {
 		if( _debug == true ) {
@@ -590,7 +601,10 @@ bool parse_argv(char** argv, int argc)
 		else if( argv[i][0] == '/' && argv[i][1] == 'f' && argv[i][2] == ':' ) {
 			file = argv[i] + 3;
 		}
-		else if( argv[i][0] == '-' && argv[i][1] == '-' && strchr(&argv[i][2], 't') != 0 ) {
+    else if( argv[i][0] == '/' && argv[i][1] == 'n' && argv[i][2] == 'o' && argv[i][3] == 'l' && argv[i][4] == 'o' && argv[i][5] == 'g' ) {
+      _nolog = true;
+    }
+		else if( argv[i][0] == '-' && argv[i][1] == '-' && argv[i][2] == 't' && argv[i][3] == 0 ) {
 			_debug = true;
 		}
 		else if( argv[i][0] == '-' && argv[i][1] == '-' && strchr(&argv[i][2], '=') != 0 ) {
@@ -686,6 +700,9 @@ int main(int argc, char** argv)
 	PyObject_SetAttrString(obj, "_SERPENT_VERSION", Py_BuildValue("s","0.0.98"));
 	PyObject_SetAttrString(obj, "_SERPENT_SCRIPT", Py_BuildValue("s",file.c_str()));
 	PyObject_SetAttrString(obj, "_WORKING_DIR", Py_BuildValue("s",workingDirectory));
+  PyObject_SetAttrString(obj, "_SERPENT_LOG", _nolog == true ? Py_False : Py_True);
+
+  
 	PyObject* serpent_dictionary = PyModule_GetDict(obj);
 	PyDict_SetItemString(serpent_dictionary, "__builtins__", PyEval_GetBuiltins());
 
