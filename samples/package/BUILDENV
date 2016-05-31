@@ -1,0 +1,14 @@
+
+serpent.artifact(
+	"com.serpent.package1",
+	"1.0-SNAPSHOT",
+	['README.MD'],
+	['com.serpent.package2']
+)
+
+serpent.artifact(
+	"com.serpent.package2",
+	"1.0-SNAPSHOT",
+	['README.MD'],
+	['com.serpent.package1']
+)

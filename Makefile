@@ -23,6 +23,6 @@ $(TARGET):$(SOURCES)
         cd ..
         $(CC) -I$(PYTHON)include -DWINDOWS /Fointermediate\ /Fe$@ $** $(PYTHON)libs\python27.lib Shell32.lib Rpcrt4.lib Ole32.lib
         copy $(PYTHON_DLL) bin\release\python27.dll
-        -$(TARGET) rebuild /t:serpent_project /t:BUILDENV~ --python-sdk=$(PYTHON) --toolset=$(TOOLSET)
+        -$(TARGET) rebuild /t:serpent_project /f:BUILDENV~ --python-sdk=$(PYTHON) --toolset=$(TOOLSET) /nolog
         del $(TARGET)      
-        -$(TARGET2) rebuild /t:* /t:BUILDENV~ --python-sdk=$(PYTHON) --toolset=$(TOOLSET)
+        -$(TARGET2) rebuild /t:* /f:BUILDENV --python-sdk=$(PYTHON) --toolset=$(TOOLSET) /nolog

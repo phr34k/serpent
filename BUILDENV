@@ -12,6 +12,7 @@ serpent.option(
 )
 
 serpent.include('samples/cpp/BUILDENV')
+serpent.include('samples/package/BUILDENV')
 
 '''
 @serpent.prebuild

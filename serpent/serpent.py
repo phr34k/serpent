@@ -1,4 +1,4 @@
-import os, tarfile
+import os, tarfile, StringIO
 path=os.path
 
 _prebuild = []
@@ -74,12 +74,17 @@ def download(url, hash = None):
       _download(url=url, hash=hash)
     _install.append(_call);  
 
-def artifact(id, version, files = []):
+def artifact(id, version, files = [], dependecies = []):
+  workingdir = _WORKING_DIR
   for x in range(0, len(files)): files[x] = path.abspath(files[x])
 
   def _artifact_install(id, version):
     repository_search(id, version)
     tar = tarfile.open(".srp/%s.%s.tar.bz2" % (id, version), "r:bz2")
+    f=tar.extractfile('.spkg')
+    content=f.read()
+    print content
+
     for file in tar:
       data = tar.extractfile(file.name).read()
       dirname = os.path.dirname('.srp/' + file.name)
@@ -88,13 +93,28 @@ def artifact(id, version, files = []):
       fout.write(data)
       fout.close()
     tar.close()
-  def _artifact_create(id, version, files = []):
+  def _artifact_create(id, version, files = [], dependecies = []):
     tar = tarfile.open(".srp/%s.%s.tar.bz2" % (id, version), "w:bz2")
-    for name in files: tar.add(name)
+
+    string = StringIO.StringIO()
+    string.write("""Serpent Package Information\n""");
+    string.write("""Id: %s\n""" % id);
+    string.write("""Version: %s\n""" % version);
+    for dep in dependecies:
+      string.write("""Dependecy: %s\n""" % dep);
+    string.seek(0)
+    info = tarfile.TarInfo(name=".spkg")
+    info.size=len(string.buf)
+    tar.addfile(tarinfo=info, fileobj=string)
+
+    for name in files:
+      relative_path = os.path.relpath(name, os.path.dirname(workingdir))
+      tar.add(name, arcname=relative_path)
+      print relative_path
     tar.close()
   def _create():
     print "create artifacts"
-    _artifact_create(id=id, version=version, files=files)
+    _artifact_create(id=id, version=version, files=files, dependecies=dependecies)
   def _inst():
     _artifact_install(id=id, version=version)
 
