@@ -13,21 +13,3 @@ serpent.option(
 
 serpent.include('samples/cpp/BUILDENV')
 serpent.include('samples/package/BUILDENV')
-
-'''
-@serpent.prebuild
-def run():
-	print "Error: 1"
-	print "Error: 1"
-	print "Error: 1"
-	print "Warning: 1"
-	print "Warning: 1"
-
-@serpent.postbuild
-def run():
-	print "Error: 1"
-	print "Error: 1"
-	print "Error: 1"
-	print "Warning: 1"
-	print "Warning: 1"
-'''

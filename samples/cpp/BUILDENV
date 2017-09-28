@@ -2,6 +2,7 @@
 msbuild_ext = serpent.load('../../serpent.msbuild.srp');
 
 msbuild_ext.visual_studio(
+	toolset = serpent.triggers['toolset'],
 	project = "../../msvc/sample_cpp.project",
 	files = serpent.glob(['*.cpp']),
 	name = 'sample_cpp',
