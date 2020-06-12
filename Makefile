@@ -14,6 +14,13 @@ SOURCES = \
 
 all: $(TARGET)
 
+clean:
+        -del intermediate\*.obj /q
+        -del bin\release\denv.exe /q      
+        -rmdir intermediate /S /Q               
+        -rmdir bin\release /S /Q        
+        -rmdir bin /S /Q
+
 $(TARGET):$(SOURCES)
 	-mkdir bin
 	-mkdir bin\release
@@ -22,7 +29,7 @@ $(TARGET):$(SOURCES)
         cd serpent
         $(PYTHON)python.exe package.py > embed.cpp
         cd ..
-        $(CC) -I$(PYTHON)include -DWINDOWS /Fointermediate\ /Fe$@ $** $(PYTHON)libs\python27.lib Shell32.lib Rpcrt4.lib Ole32.lib
+        $(CC) -I$(PYTHON)include -DWINDOWS -DHAVE_JUNCTIONS /Fointermediate\ /Fe$@ $** $(PYTHON)libs\python27.lib Shell32.lib Rpcrt4.lib Ole32.lib Advapi32.lib
         -$(TARGET) rebuild /t:serpent_project /f:BUILDENV~ --python-sdk=$(PYTHON) --toolset=$(TOOLSET) /nolog
         del $(TARGET)      
         -$(TARGET2) rebuild /t:* /f:BUILDENV --python-sdk=$(PYTHON) --toolset=$(TOOLSET) /nolog

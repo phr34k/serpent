@@ -79,9 +79,9 @@ static void CreateJunction(LPCSTR szJunction, LPCSTR szPath) {
 #include "curl/curl.h"
 #endif 
 
-
-
 std::string userdir = "";
+std::string bindir = "";
+std::string packagesdir = "";
 std::string file = "BUILDENV";
 PyObject* obj = 0;
 PyObject *options = 0;
@@ -663,13 +663,16 @@ void load_serpent_home_dir()
 
 int main(int argc, char** argv)
 {
-	//Create the directory
-	userdir = get_environment_var();
-	userdir.append("/.srp/");
-	CreateDirectory(userdir.c_str(), false);
-
-
- 
+  //Create the directory
+  userdir = get_environment_var();
+  userdir.append("/.srp/");
+  CreateDirectory(userdir.c_str(), false);
+  bindir = userdir;
+  bindir.append("/.srp/.bin");
+  CreateDirectory(userdir.c_str(), false);  
+  packagesdir = userdir;
+  packagesdir.append("/.srp/packages");
+  CreateDirectory(userdir.c_str(), false); 
 
 
 	#ifdef HAVE_CURL	
