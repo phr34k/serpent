@@ -21,6 +21,12 @@ clean:
         -rmdir bin\release /S /Q        
         -rmdir bin /S /Q
 
+install:
+        -copy serpent.msbuild.srp .srp\modules
+        -copy bin\release\env.exe .srp\.bin\srp.exe
+        -setx SERPENT ^%USERPROFILE^%%\.srp\.bin
+        -test.bat
+
 $(TARGET):$(SOURCES)
 	-mkdir bin
 	-mkdir bin\release

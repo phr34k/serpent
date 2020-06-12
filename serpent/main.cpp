@@ -82,6 +82,7 @@ static void CreateJunction(LPCSTR szJunction, LPCSTR szPath) {
 std::string userdir = "";
 std::string bindir = "";
 std::string packagesdir = "";
+std::string modulesdir = "";
 std::string file = "BUILDENV";
 PyObject* obj = 0;
 PyObject *options = 0;
@@ -94,6 +95,7 @@ bool _debug = false;
 std::map<std::string, PyObject*>   _modules_loaded;
 std::map<std::string, std::string> _options_desc;
 std::map<std::string, std::string> _options_value;
+std::map<std::string, std::string> _license_file;
 std::set<std::string> _targets;
 
 #ifdef HAVE_CURL
@@ -127,6 +129,7 @@ static PyObject* emb_load(PyObject *self, PyObject *args)
     const char *command;
     if (!PyArg_ParseTuple(args, "s", &command))
         return Py_BuildValue("");
+  printf("loading... %s\n", command);
 	
     if( strstr(command,"http"))
     {
@@ -180,13 +183,47 @@ static PyObject* emb_load(PyObject *self, PyObject *args)
 		    #endif
     	}
     }
-    
 
-     
 
-	char abspath[4096];
-	_fullpath(abspath, command, 4096);
-	std::string dir(abspath, strrchr(abspath,'\\') > strrchr(abspath, '/') ? strrchr(abspath, '\\') : strrchr(abspath, '/'));
+  std::string abspath, dir;
+  struct stat buffer;   
+  if( (stat(command, &buffer) == 0) ) 
+  {
+    char abspath2[4096];
+    _fullpath(abspath2, command, 4096);
+    dir = std::string(abspath2, strrchr(abspath2,'\\') > strrchr(abspath2, '/') ? strrchr(abspath2, '\\') : strrchr(abspath2, '/'));
+    abspath = abspath2;
+  }
+  else
+  {
+    std::string temp = modulesdir;
+    temp.append("/");
+    temp.append(command);
+    char abspath2[4096];
+    _fullpath(abspath2, temp.c_str(), 4096);
+    dir = std::string(abspath2, strrchr(abspath2,'\\') > strrchr(abspath2, '/') ? strrchr(abspath2, '\\') : strrchr(abspath2, '/'));
+    if( (stat(abspath2, &buffer) == 0) )
+    {
+      abspath = abspath2;
+    }
+    else
+    {
+      switch (errno)
+      {
+         case ENOENT:
+           printf("File %s not found.\n", abspath2);
+           break;
+         case EINVAL:
+           printf("Invalid parameter to _stat.\n");
+           break;
+         default:
+           /* Should never be reached. */
+           printf("Unexpected error in _stat.\n");
+      }      
+      exit(-1);      
+    }
+  }
+
 
 	//Lazy load the module...
 	if( _modules_loaded.find(abspath) == _modules_loaded.end() ) {		
@@ -225,6 +262,23 @@ static PyObject* emb_info(PyObject *self, PyObject *args)
         return Py_BuildValue("");
 	printf("%s\n", command);
     return Py_BuildValue("");
+}
+
+static PyObject* emb_license(PyObject *self, PyObject *args, PyObject *kwargs)
+{
+  printf("parsing... license information\n");
+  const char *description, *license = "";
+  static char *kwlist[] = {"description", "license", NULL};
+  if (!PyArg_ParseTupleAndKeywords(args, kwargs, "s|s", kwlist, &description, &license))
+    return Py_BuildValue("");
+  //if(PyDict_Contains(license, Py_BuildValue("s", description)) == false ) {
+  //    PyDict_SetItemString(license, description, Py_BuildValue("s", license));  
+  //}
+
+  char abspath2[4096];
+  _fullpath(abspath2, license, 4096);
+  _license_file[description] = abspath2;
+  return Py_BuildValue("");
 }
 
 static PyObject* emb_option(PyObject *self, PyObject *args, PyObject *kwargs)
@@ -367,6 +421,7 @@ static PyObject* emb_run(PyObject *self, PyObject *args)
 
 	char abspath[4096];
 	_fullpath(abspath, command, 4096);
+  printf("including... information %s\n", abspath);
 	if( _modules_loaded.find(abspath) == _modules_loaded.end() ) 
 	{
 		std::string dir(abspath, strrchr(abspath,'\\') > strrchr(abspath, '/') ? strrchr(abspath, '\\') : strrchr(abspath, '/'));
@@ -380,6 +435,12 @@ static PyObject* emb_run(PyObject *self, PyObject *args)
 		char workingDirectory[2048];
 		_getcwd(workingDirectory, 2048);
 		SetCurrentDirectoryA(dir.c_str());
+    bool retval = RemoveDirectory("./.srp/");
+    if( retval == false )
+    {
+      system("rmdir .\\.srp\\ /s /q");
+      printf("The directory was not a junction\n");
+    }
 
 		#ifdef HAVE_JUNCTIONS
 	    LPSTR pszName;
@@ -499,11 +560,11 @@ static PyObject* emb_repository_download(PyObject *self, PyObject *args)
 }
 
 static PyMethodDef EmbMethods[] = {
-	
+  {"license", (PyCFunction)emb_license, METH_VARARGS | METH_KEYWORDS},
 	{"option", (PyCFunction)emb_option, METH_VARARGS | METH_KEYWORDS},
 	{"target", (PyCFunction)emb_target, METH_VARARGS | METH_KEYWORDS},	
 	{"load", (PyCFunction)emb_load, METH_VARARGS},
-    {"info", (PyCFunction)emb_info, METH_VARARGS},
+  {"info", (PyCFunction)emb_info, METH_VARARGS},
 	{"glob", (PyCFunction)emb_glob, METH_VARARGS | METH_KEYWORDS},
 	{"include", (PyCFunction)emb_run, METH_VARARGS},
 	{"guid", (PyCFunction)emb_guid, METH_VARARGS},
@@ -667,13 +728,35 @@ int main(int argc, char** argv)
   userdir = get_environment_var();
   userdir.append("/.srp/");
   CreateDirectory(userdir.c_str(), false);
-  bindir = userdir;
-  bindir.append("/.srp/.bin");
-  CreateDirectory(userdir.c_str(), false);  
-  packagesdir = userdir;
-  packagesdir.append("/.srp/packages");
-  CreateDirectory(userdir.c_str(), false); 
+  bindir = std::string(userdir);
+  bindir.append(".bin");
+  CreateDirectory(bindir.c_str(), false);  
+  packagesdir = std::string(userdir);
+  packagesdir.append("packages");
+  CreateDirectory(packagesdir.c_str(), false); 
+  modulesdir = std::string(userdir);
+  modulesdir.append("modules");
+  CreateDirectory(modulesdir.c_str(), false);   
 
+  printf("%s\n", packagesdir.c_str());
+  printf("%s\n", bindir.c_str());
+
+  std::string root = "";
+  int lastKnownOption = 1;  
+  for( int i = 0; i < argc; ++i ) 
+  {
+     if( argv[i] != nullptr && strcmp(argv[i], "-w") == 0 && argv[i + 1] != nullptr)
+     {
+        root = argv[i + 1];
+        SetCurrentDirectoryA(root.c_str());
+        lastKnownOption=i + 2;
+     }
+  }
+
+
+  printf("Set cwd to %s\n", root.c_str());
+  printf("last option %d\n", lastKnownOption);
+  printf("last option %s\n", argv[lastKnownOption]);
 
 	#ifdef HAVE_CURL	
 	curl = curl_easy_init();
@@ -684,18 +767,18 @@ int main(int argc, char** argv)
 	_getcwd(workingDirectory, 2048);
 
     Py_Initialize();
-    load_serpent_home_dir();
+    load_serpent_home_dir();  
 
 
 
 	options = PyDict_New();
 	targets = PyList_New(0);
 	platforms = PyList_New(0);
-	parse_argv(argv + 2, argc - 2);
+	parse_argv(argv + lastKnownOption + 1, argc - (lastKnownOption + 1));
 	
-    obj = Py_InitModule("serpent", EmbMethods);
-    PyObject_SetAttrString(obj, "content", Py_BuildValue("i", false));
-	PyObject_SetAttrString(obj, "action", Py_BuildValue("s", argv[1]));
+  obj = Py_InitModule("serpent", EmbMethods);
+  PyObject_SetAttrString(obj, "content", Py_BuildValue("i", false));
+	PyObject_SetAttrString(obj, "action", Py_BuildValue("s", argv[lastKnownOption]));
 	PyObject_SetAttrString(obj, "triggers", options);
 	PyObject_SetAttrString(obj, "targets", targets);
 	PyObject_SetAttrString(obj, "platforms", platforms);
@@ -715,6 +798,7 @@ int main(int argc, char** argv)
 	   PyErr_Print();
 	}
 	
+  printf("Run serpent on %s\n", file.c_str());
 	PyObject* tuple = PyTuple_New(1);
 	PyTuple_SetItem(tuple, 0, Py_BuildValue("s", file.c_str()));
 	emb_run(0, tuple);
@@ -764,7 +848,8 @@ int main(int argc, char** argv)
 	#endif
 
 
-	if( argv[1] != 0 && strcmp(argv[1], "help") == 0)
+  printf("last option %d\n", lastKnownOption);
+	if( argv[lastKnownOption] != 0 && strcmp(argv[lastKnownOption], "help") == 0)
 	{
 		printf("env file action [option1] [option1]\r\n");
 		printf("\n");
@@ -786,7 +871,32 @@ int main(int argc, char** argv)
 		printf("\t%s\n", "Rebuild");
 		printf("\t%s\n", "Workspace");
 	}
-	else if( argv[1] != 0 && strcmp(argv[1], "configure") == 0)
+  else if( argv[lastKnownOption] != 0 && strcmp(argv[lastKnownOption], "license") == 0)
+  {
+    printf("env file action [option1] [option1]\r\n");
+    printf("\n");
+    printf("\tLicenses:\n");
+    for( std::map<std::string, std::string>::iterator itt = _license_file.begin(); itt != _license_file.end(); ++itt ) {
+      std::string file;
+      file.append("license/license-");
+      file.append(itt->first.c_str());
+      file.append(".txt");
+
+      printf("copy from %s to %s\n", itt->second.c_str(), file.c_str());
+      CopyFile(itt->second.c_str(), file.c_str(), false);      
+    }
+  }  
+  else if( argv[lastKnownOption] != 0 && strcmp(argv[lastKnownOption], "--h") == 0)
+  {
+    printf("env file action [option1] [option1]\r\n");
+    printf("\n");
+    printf("\tSupported Actions:\n");
+    printf("\t%s\n", "Clean");
+    printf("\t%s\n", "Build");
+    printf("\t%s\n", "Rebuild");
+    printf("\t%s\n", "Workspace");
+  }  
+	else if( argv[lastKnownOption] != 0 && strcmp(argv[lastKnownOption], "configure") == 0)
 	{
 		std::ofstream file("BUILD_RESP");
 		for( int i = 2; i < argc; ++i ) {			
