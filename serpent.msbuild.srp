@@ -7,6 +7,7 @@ serpent.outdirs = {}
 serpent.configuration = {}
 serpent._internal = {}
 serpent._configurations = ['Release']
+serpent._execute_commands = []
 
 solutions = []
 Application=1
@@ -100,8 +101,9 @@ class _solution:
 			output_stream.close()			
 		del output_value
 
-def _create_targets(project, string):
-	project = os.path.join( os.path.dirname(os.path.realpath(__file__)), project);
+def _create_targets(directory, project, string):
+	project = os.path.join( directory, project);
+	print(project)
 	fobj = StringIO.StringIO()
 	fobj.write('<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">');
 	fobj.write(string)
@@ -744,4 +746,23 @@ serpent.target_run = target_run;
 del build
 del target_run
 
-_create_targets('msvc/qt.targets', qt_targets)
+_create_targets(serpent._WORKING_ROOT, 'msvc/qt.targets', qt_targets)
+
+
+def execute_process(
+	working_dir,
+	command
+):
+	def execute_process_inner(
+		working_dir,
+		command
+	):
+		print("execute.... {0}".format(' '.join(command)))
+		subprocess.call(command, cwd=working_dir)
+
+	serpent._execute_commands.append(
+		(execute_process_inner, (working_dir, command) )
+	)
+
+serpent.execute_process = execute_process
+del execute_process
