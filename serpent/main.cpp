@@ -238,8 +238,8 @@ static PyObject* emb_load(PyObject *self, PyObject *args)
 						 std::istreambuf_iterator<char>());
 
 		PyObject *pName, *pModule, *pArgs, *pValue, *pFunc;
-		PyObject *pNewMod = PyModule_New("");
-		PyModule_AddStringConstant(pNewMod, "__file__", command);
+		PyObject *pNewMod = PyModule_New(command);
+		PyModule_AddStringConstant(pNewMod, "__file__", abspath.c_str());
 		PyObject *pLocal = PyModule_GetDict(pNewMod);
 		PyDict_SetItemString(pLocal, "__builtins__", PyEval_GetBuiltins());
 		pValue = PyRun_String(str.c_str(), Py_file_input, pLocal, pLocal);
