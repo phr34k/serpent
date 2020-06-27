@@ -951,6 +951,10 @@ int main(int argc, char** argv)
 		}
 		file.close();
 	}
+  else
+  {
+    parse_buildenv(argc,argv,lastKnownOption);
+  }
 
 	return 0;
 }
