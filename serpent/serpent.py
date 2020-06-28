@@ -3,7 +3,7 @@ path=os.path
 
 _prebuild = []
 _postbuild = []
-_targets = targets;
+_targets = targets
 _premake = []
 _install = []
 _artifacts = []
@@ -46,6 +46,7 @@ def postbuild(func):
 
 def package(name, packages = []):   
    if name in targets:
+      global _targets
       _targets = list(set(_targets + packages))
    target( name = name )
 
