@@ -658,9 +658,23 @@ LPSTR* CommandLineToArgvA(LPSTR lpCmdLine, INT *pNumArgs)
 
 bool parse_responsefile(const char* responseFile);
 
-bool parse_argv(char** argv, int argc)
+bool parse_argv(char* action, char** argv, int argc, char** workspaceFolder)
 {
-	for( int i = 0; i < argc; i++ ) {
+  int offset = 0;
+  if( action != nullptr ) 
+  {
+      if( strcmp(action, "workspace") == 0 )
+      {
+          if( argv[offset] != nullptr && argv[offset][0] != '-' && argv[offset][0] != '/'  && argv[offset][0] != '@' )
+          {
+              *workspaceFolder = argv[offset];
+              offset = offset + 1;          
+          }
+      }
+  }
+
+
+	for( int i = offset; i < argc; i++ ) {
 		if( argv[i][0] == '/' && argv[i][1] == 't' && argv[i][2] == ':' ) {
 			PyList_Append(targets,Py_BuildValue("s",argv[i] + 3));
 		}
@@ -704,7 +718,7 @@ bool parse_responsefile(const char* responseFile)
 		#ifdef WINDOWS
 		int argc = 0;
 		char** argv = CommandLineToArgvA((char*)str.c_str(), &argc);
-		parse_argv(argv, argc);
+    parse_argv(nullptr, argv, argc, nullptr);    
 		return true;
 		#endif 
 	}
@@ -773,11 +787,12 @@ int main(int argc, char** argv)
         load_serpent_home_dir();  
 
 
+      char* workspaceFolder = "msvc";
 
       options = PyDict_New();
       targets = PyList_New(0);
       platforms = PyList_New(0);
-      parse_argv(argv + lastKnownOption + 1, argc - (lastKnownOption + 1));
+      parse_argv(argv[lastKnownOption], argv + lastKnownOption + 1, argc - (lastKnownOption + 1), &workspaceFolder);
       
       obj = Py_InitModule("serpent", EmbMethods);
       PyObject_SetAttrString(obj, "content", Py_BuildValue("i", false));
@@ -791,6 +806,7 @@ int main(int argc, char** argv)
       PyObject_SetAttrString(obj, "_WORKING_DIR", Py_BuildValue("s",workingDirectory));
       PyObject_SetAttrString(obj, "_WORKING_ROOT", Py_BuildValue("s",workingDirectory));
       PyObject_SetAttrString(obj, "_SERPENT_LOG", _nolog == true ? Py_False : Py_True);
+      PyObject_SetAttrString(obj, "_SERPENT_WORKSPACE", Py_BuildValue("s",workspaceFolder));
 
       
       PyObject* serpent_dictionary = PyModule_GetDict(obj);
