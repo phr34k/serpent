@@ -1,4 +1,6 @@
-import os, tarfile, StringIO
+import os, tarfile, StringIO, warnings
+warnings.simplefilter("ignore")
+print("Ignore default runtime warnings")
 path=os.path
 
 _prebuild = []
