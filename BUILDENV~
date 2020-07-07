@@ -1,4 +1,3 @@
-
 serpent.option(
    trigger     = "python-sdk",
    value       = "C:\\Python27\\",

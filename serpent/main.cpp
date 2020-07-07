@@ -89,6 +89,7 @@ std::string bindir = "";
 std::string packagesdir = "";
 std::string modulesdir = "";
 std::string cachedir = "";
+std::string workarea = "";
 std::string file = "BUILDENV";
 PyObject* obj = 0;
 PyObject *options = 0;
@@ -816,6 +817,41 @@ std::string workingdirToHex(const char* workingDirectory)
       return hexStr(digest, sizeof(digest));  
 }
 
+
+void create_junction(const char* source, const char* dest)
+{
+    bool retval = RemoveDirectory(dest);
+    if( retval == false )
+    {
+      printf("The directory was not a junction\n");
+    }
+
+    #ifdef HAVE_JUNCTIONS
+      LPSTR pszName;
+      char szPath[MAX_PATH], szLink[MAX_PATH];
+      strcpy(szLink, dest);
+      int len = strlen(szLink);
+      if (szLink[len-1] == '\\') szLink[--len] = '\0';  // Remove trailing backslash
+      if (!::GetFullPathName(source, MAX_PATH, szPath, &pszName)) throw ::GetLastError();
+      len = strlen(szPath);
+    if (szPath[len-1] == '\\') szPath[--len] = '\0';  // Remove trailing backslash
+    try {
+       if( _debug == true ) {
+          printf("Creating junction %s %s\r\n", szLink, szPath);
+       }
+       CreateJunction(szLink, szPath);
+    } catch(...) {
+       if( _debug == true ) {
+          printf("Exception when trying to make junction %s %s\r\n", szLink, szPath);
+       }
+    }
+    #else
+    if( _debug == true ) {
+      printf("Junctions are disabled in this version\r\n");
+    }
+    #endif  
+}
+
 int main(int argc, char** argv)
 {
   //Create the directory
@@ -834,6 +870,9 @@ int main(int argc, char** argv)
   cachedir = std::string(userdir);
   cachedir.append("cache");
   CreateDirectory(cachedir.c_str(), false); 
+  workarea = std::string(userdir);
+  workarea.append("workarea");
+  CreateDirectory(workarea.c_str(), false);
 
   std::string root = "";
   int lastKnownOption = 1;  
@@ -862,15 +901,22 @@ int main(int argc, char** argv)
       //wspcachedir = std::string(userdir);
       //wspcachedir.append("cache/" + hex);
       //CreateDirectory(wspcachedir.c_str(), false);
-
+      workarea.append("/");
+      workarea.append(hex);
+      CreateDirectory(workarea.c_str(), false);
 
 
         Py_Initialize();
         load_serpent_home_dir();  
-
-
+ 
+      std::string workareaRelative;
+      workareaRelative.append(".srp/workarea/");
+      workareaRelative.append(hex);
       char* workspaceFolder = "msvc";
       char* helpAction = "info";
+
+      //Setup junction for workarea
+      create_junction(workarea.c_str(), "./.srp-workarea/");
 
       options = PyDict_New();
       targets = PyList_New(0);
@@ -888,6 +934,7 @@ int main(int argc, char** argv)
       PyObject_SetAttrString(obj, "_WORKING_DIR", Py_BuildValue("s",workingDirectory));
       PyObject_SetAttrString(obj, "_WORKING_ROOT", Py_BuildValue("s",workingDirectory));
       PyObject_SetAttrString(obj, "_SERPENT_LOG", _nolog == true ? Py_False : Py_True);
+      PyObject_SetAttrString(obj, "_SERPENT_WORKAREA", Py_BuildValue("s",workareaRelative.c_str()));  
       
       PyObject* serpent_dictionary = PyModule_GetDict(obj);
       PyDict_SetItemString(serpent_dictionary, "__builtins__", PyEval_GetBuiltins());
@@ -1102,8 +1149,6 @@ int main(int argc, char** argv)
       environment.append("cmd /k \"call ");
       environment.append(environmentName.c_str());
       environment.append("\"");
-      system("cls");
-      printf("activating environment %s\n", environmentName.c_str());      
       system(environment.c_str());
     }
     else
