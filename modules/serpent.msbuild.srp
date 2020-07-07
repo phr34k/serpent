@@ -1,4 +1,5 @@
 import serpent, os, subprocess, ctypes, re, sys, StringIO
+from itertools import chain
 
 class _option(object):
 	def __init__(self, mapping, data = None):
@@ -136,7 +137,7 @@ def find_executable(executable, path=None):
 		return None
 
 def find_file(file, paths=None):
-	paths = path.split(os.pathsep)
+	paths = chain.from_iterable(x.split(os.pathsep) for x in paths)
 	for p in paths:
 		f = os.path.join(p, file)
 		if os.path.isfile(f):
@@ -305,6 +306,62 @@ def external(project, name, configuration = serpent._configurations, depends = [
 			raise Exception("Path %s does not exists" % project )		
 		serpent._internal[name].guid = find_guid(project)
 	serpent._internal[name] = _external(project, name, None, configuration, depends, options, generateWrapper, debuginfo())
+
+
+def commandline(name, project, folder, configuration = serpent._configurations, **kwargs):
+
+	base = kwargs.get('base',  os.path.join( serpent._WORKING_ROOT, serpent._SERPENT_WORKAREA ) )
+	project = os.path.abspath(os.path.join(base, project))
+	folder = os.path.abspath(folder)
+	serpent._target_outputs[name] = folder
+	build = kwargs.get('build', None)
+	rebuild = kwargs.get('rebuild', None)
+	clean = kwargs.get('clean', None)
+	intdir = kwargs.get('intdir', [])
+	outdir = kwargs.get('outdir', [])	
+
+	nmake = find_file("nmake.exe", [r'C:\Program Files (x86)\Microsoft Visual Studio 14.0\VC\bin'])
+	intdir = os.path.abspath(os.path.join(base, intdir)) + "/"
+	outdir = os.path.abspath(os.path.join(base, outdir)) + "/"
+
+
+	def generate(**kwargs):
+
+		if name in serpent._targets:
+			tools = { 'nmake': nmake, 'intdir': intdir, 'outdir': outdir  }
+			arguments = build(tools) if build else []
+			if not os.path.exists(os.path.dirname(project)): os.mkdir(os.path.dirname(project))
+
+			fobj = StringIO.StringIO()	
+			fobj.write(
+			'''
+			<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003" InitialTargets="Build">
+				<Target Name="Build">			    
+					<Exec Command="{0}" WorkingDirectory="{1}" />
+			    </Target>
+			</Project>
+			'''.format(" ".join( "&quot;" + x + "&quot;" for x in arguments), folder))		
+
+			output_value = fobj.getvalue();
+			fobj.close();
+			del fobj
+
+			if os.path.isfile(project):
+				output_stream = open(project, 'r')
+				value = output_stream.read()
+				output_stream.close()
+				if value != output_value:
+					output_stream = open(project, 'w')
+					output_stream.write(output_value)
+					output_stream.close()
+			else:
+				output_stream = open(project, 'w')
+				output_stream.write(output_value)
+				output_stream.close()			
+			del output_value
+
+	serpent.target( name = name )
+	external(name = name, project = project, configuration = configuration, generator=generate )
 
 def cmake(name, project, folder, input, arguments = [], configuration = serpent._configurations, **kwargs):
 
@@ -763,7 +820,8 @@ def visual_studio_solution(solution, format = 12, version = 2012, projects = [])
 def msbuild(project, projects = [], prepostbuild=False):
 	if not os.path.exists(os.path.dirname(project)):
 		raise Exception("Path {0} does not exists".format(project))
-	if serpent.action == "workspace" or serpent.action == "build" or serpent.action == "rebuild" or serpent.action == "clean":		
+	if serpent.action == "workspace" or serpent.action == "build" or serpent.action == "rebuild" or serpent.action == "clean":
+
 
 		'''
 		for x in projects:
