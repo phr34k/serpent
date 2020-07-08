@@ -716,7 +716,7 @@ def qt_project(project, files, name, **kwargs):
 	<Configuration>Release</Configuration>
 	<OutDir>%s</OutDir>
 	<IntDir>%s</IntDir>
-	<QTDIR>E:\\Programming - VC Sdk\\Qt\\5.5\\msvc2012</QTDIR>  
+	<QTDIR>%s</QTDIR>  
 	<Moc>$(QTDIR)/bin/moc.exe</Moc>
 	<GenDir>moc_$(MSBuildProjectName)</GenDir>
   </PropertyGroup>
@@ -731,7 +731,7 @@ def qt_project(project, files, name, **kwargs):
 	  <AdditionalDependencies>%s</AdditionalDependencies>
 	</Link>    
   </ItemDefinitionGroup>
-		""" %  ( str(toolversion), str(toolset), outdir, intdir, _compileopts, ";".join(str(x) for x in defines), ";".join(str(x) for x in includes), _linkopts, ";".join(str(x) for x in libs)))
+		""" %  ( str(toolversion), str(toolset), outdir, intdir, serpent.triggers['qt-sdk'], _compileopts, ";".join(str(x) for x in defines), ";".join(str(x) for x in includes), _linkopts, ";".join(str(x) for x in libs)))
 
 		fobj.write("<ItemGroup>")
 		for x in configuration:
@@ -1071,6 +1071,11 @@ def shortcut(link, target, description, working_dir, arguments=""):
 		oLink.Arguments = arguments
 		oLink.Save()
 
+def ensure_path_exists(file):
+	directory = os.path.dirname(file)
+	directory = '.' if directory == '' else directory
+	if not os.path.exists(directory): os.mkdir(directory)
+
 
 def contents(file, contents=None, filename=None, variables=serpent.triggers):
 	
@@ -1087,13 +1092,14 @@ def contents(file, contents=None, filename=None, variables=serpent.triggers):
 	f.close()
 	'''
 
-	if contents is None:
+	if contents is None:	
 		f=open(filename,"r")
 		contents = f.read()
 		f.close()	
 	for x in variables:
 		var = variables[x].replace("\\","/")
 		contents = contents.replace("@" + x + "@", var)
+	ensure_path_exists(file)
 	f=open(file,"w")
 	f.write(contents)
 	f.close()	
