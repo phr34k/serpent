@@ -1,3 +1,6 @@
+.srp
+.srp-workarea
+.git
 Intermediate/
 msvc/
 BUILD_ERRORS

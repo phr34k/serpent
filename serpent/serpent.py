@@ -1,9 +1,10 @@
-import os, tarfile, StringIO
+import os, tarfile, StringIO, warnings
+warnings.simplefilter("ignore")
 path=os.path
 
 _prebuild = []
 _postbuild = []
-_targets = targets;
+_targets = targets
 _premake = []
 _install = []
 _artifacts = []
@@ -46,6 +47,7 @@ def postbuild(func):
 
 def package(name, packages = []):   
    if name in targets:
+      global _targets
       _targets = list(set(_targets + packages))
    target( name = name )
 
@@ -127,8 +129,6 @@ def build():
     functionName = "target_" + action
     if functionName in g:
        g[functionName]()
-    else:
-       print "function does not exists"
 
 def target_build():
   print "Building..."     
@@ -162,3 +162,17 @@ def target_postbuild():
 
 def target_run():  
   print "run"
+
+
+_environment = environment
+def environment(name="", environments={}, workspace=False):  
+  contents = ""
+  contents += "@echo off\n"
+  for x in environments:
+    contents += "SET " + x + "=" + ";".join(environments[x]) + "\n"    
+  if workspace == True:
+    contents += "SET VSDEVCMD=C:\Program Files (x86)\Microsoft Visual Studio 14.0\Common7\Tools\VsDevCmd.bat\n"
+    contents += "IF EXIST \"%VSDEVCMD%\" (\n"
+    contents += "    CALL \"%VSDEVCMD%\"\n"
+    contents += ")\n"
+  _environment(name, contents)

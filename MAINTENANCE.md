@@ -1,5 +1,15 @@
 # Maintenance scripts
 
+Below is a overview of all maintenance scripts and utullities.
+
+- `pyhton -m serpent-msbuild.compact` scans a directory recursively for .ncb .sdf and .opensdf files and removes them.
+- `pyhton -m serpent-msbuild.validate` scans a directory recursively for .vcxproj .csproj .vbproj files and performs sanatizing checks such as ensure project files don't reference $(SolutionDir) directly.
+- `pyhton -m serpent-msbuild.modify-project` uses pythonnet and msbuild api to programtically modify projects.
+- `pyhton -m serpent-msbuild.convert-project` uses pythonnet and msbuild api to convert the project.
+- `pyhton -m serpent-msbuild.change-project` uses pythonnet and msbuild api to make modifications to the project.
+- `pyhton -m serpent-msbuild.format-project` uses pythonnet and msbuild api to reformat the project.
+- `pyhton -m serpent-msbuild.refs-project` uses pythonnet to recurse into a project and list all project references.
+
 ## Converting projects to build definitions
 
 ```
