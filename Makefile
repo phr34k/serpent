@@ -24,5 +24,7 @@ $(TARGET):$(SOURCES)
         $(CC) -I$(PYTHON)include -DWINDOWS /Fointermediate\ /Fe$@ $** $(PYTHON)libs\python27.lib Shell32.lib Rpcrt4.lib Ole32.lib
         copy $(PYTHON_DLL) bin\release\python27.dll
         -$(TARGET) rebuild /t:serpent_project /f:BUILDENV~ --python-sdk=$(PYTHON) --toolset=$(TOOLSET) /nolog
-        del $(TARGET)      
+        del $(TARGET)              
         -$(TARGET2) rebuild /t:* /f:BUILDENV --python-sdk=$(PYTHON) --toolset=$(TOOLSET) /nolog
+        rmdir ".srp/packages/srp-pkg"
+        mklink /J ".srp/packages/srp-pkg" "./packages/srp-pkg"

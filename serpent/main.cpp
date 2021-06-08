@@ -6,13 +6,15 @@
 #include "FileGlobList.h"
 #include <map>
 #include <set>
+#include <vector>
 
 #include <direct.h>
+
 #ifdef WINDOWS
 #include <windows.h>
+#include <process.h>
 #ifdef HAVE_JUNCTIONS
 //#include "reparselib.h"
-
 
 #define REPARSE_MOUNTPOINT_HEADER_SIZE   8
 
@@ -72,6 +74,7 @@ static void CreateJunction(LPCSTR szJunction, LPCSTR szPath) {
 
 #endif
 #else //WINDOWS
+#include <unistd.h>
 #error
 #endif
 
@@ -661,6 +664,7 @@ void load_serpent_home_dir()
     }
 }
 
+extern char **environ;
 int main(int argc, char** argv)
 {
 	//Create the directory
@@ -670,7 +674,8 @@ int main(int argc, char** argv)
 
 
  
-
+  if( argv[1] != 0 && !strcmp(argv[1], "pkg") == 0)
+  {
 
 	#ifdef HAVE_CURL	
 	curl = curl_easy_init();
@@ -759,9 +764,46 @@ int main(int argc, char** argv)
 	#ifdef HAVE_CURL
 	curl_easy_cleanup(curl);
 	#endif
+  }
+
+  if( argv[1] != 0 && strcmp(argv[1], "pkg") == 0)
+  {
+    //system("python srp-pkg.py -h");
+    std::vector<char*> values;
+    values.push_back("python");
+    values.push_back("-m");
+    values.push_back("srp-pkg");
+    for( int i = 2; i < argc; ++i ) {
+        values.push_back(argv[i]);
+    }
+
+    values.push_back(nullptr);
+
+    std::vector<char*> envs;
 
 
-	if( argv[1] != 0 && strcmp(argv[1], "help") == 0)
+    for( char **v = environ; *v != 0; v++) {
+      envs.push_back(*v);
+    }
+
+    envs.push_back("PYTHONPATH=.srp\\packages");   
+    envs.push_back(nullptr);   
+    
+    fflush(stdout);
+    int retval = spawnvpe(_P_WAIT, "python", values.data(), envs.data());
+    if( retval = -1)
+    {
+      switch(errno)      
+      {
+        case E2BIG: printf("Argument list exceeds 1024 bytes."); break;
+        case EINVAL: printf("mode argument is invalid."); break;
+        case ENOENT: printf("File or path is not found."); break;
+        case ENOEXEC: printf("Specified file is not executable or has invalid executable-file format."); break;
+        case ENOMEM: printf("Not enough memory is available to execute the new process."); break;
+      }
+    }
+  }
+	else if( argv[1] != 0 && strcmp(argv[1], "help") == 0)
 	{
 		printf("env file action [option1] [option1]\r\n");
 		printf("\n");
