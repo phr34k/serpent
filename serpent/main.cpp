@@ -10,6 +10,7 @@
 #include "sha256.h"
 #include <map>
 #include <set>
+#include <vector>
 #include <functional>
 
 #include <direct.h>
@@ -1046,9 +1047,22 @@ int main(int argc, char** argv)
         }   
       }
       */
-  }
 
+      #ifdef HAVE_CURL
+      curl_easy_cleanup(curl);
+      #endif    
+
+      if( subaction )
+      {
+          subaction(helpAction);
+      }
+
+    
       Py_Finalize();
+      return true;      
+  };  
+
+
       //freopen("CONIN$", "r", stdin); 
       //freopen("CONOUT$", "w", stdout); 
       //freopen("CONOUT$", "w", stderr);   
@@ -1064,17 +1078,7 @@ int main(int argc, char** argv)
         values.push_back(argv[i]);
     }
 
-      #ifdef HAVE_CURL
-      curl_easy_cleanup(curl);
-      #endif    
 
-      if( subaction )
-      {
-          subaction(helpAction);
-      }
-
-      return true;
-  };
     values.push_back(nullptr);
 
     std::vector<char*> envs;

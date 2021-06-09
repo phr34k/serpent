@@ -1,17 +1,34 @@
 @echo off
-if exist "%~dp0Bin\Release\env.exe" (
-    "%~dp0Bin\Release\env.exe" %*
+rem DEL /F/Q/S .srp-workarea\Bin\*.* > NUL
+if exist ".srp-workarea\Bin\Release\env.exe" (
+    goto :RUN
 ) else (
-    "C:\Program Files (x86)\Microsoft Visual Studio 14.0\VC\vcvarsall.bat"
-    nmake PYTHON=D:\SDK\pyhton27\\ TOOLSET=v140
-    if exist "%~dp0Bin\Release\env.exe" (
-	"%~dp0Bin\Release\env.exe" %*
-    ) else (
-	DEL /F/Q/S %~dp0Bin\*.* > NUL
-	DEL /F/Q/S %~dp0intermediate\*.* > NUL
-        RMDIR /Q/S %~dp0Bin
-        RMDIR /Q/S %~dp0intermediate
-	echo Failed to run srp because there were compile errors
-    )
+    goto :REBUILD
 )
 
+:RUN
+".srp-workarea\Bin\Release\env.exe" %*
+goto :EOF 
+
+:REBUILD
+echo "rebuilding..."
+if "%DevEnvDir%" == "" (
+    CALL "C:\Program Files (x86)\Microsoft Visual Studio 14.0\VC\vcvarsall.bat"
+)
+
+nmake TOOLSET=v140
+if exist ".srp-workarea\Bin\Release\env.exe" (
+    goto :RUN
+) else (
+    goto :FAILED
+)
+
+:FAILED
+echo "deleting files..."
+DEL /F/Q/S .srp-workarea\Bin\*.* > NUL
+DEL /F/Q/S .srp-workarea\intermediate\*.* > NUL
+    RMDIR /Q/S .srp-workarea\Bin
+    RMDIR /Q/S .srp-workarea\intermediate
+echo Failed to run srp because there were compile errors
+
+:EOF

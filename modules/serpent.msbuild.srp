@@ -76,9 +76,13 @@ DynamicLibrary=2
 StaticLibrary=3
 
 qt_targets = """
-<Target Name="CompileQtQRC" BeforeTargets="ClCompile" Inputs="@(ResFiles)" Outputs="@(ResFiles->'%(RootDir)%(Directory)qrc_%(Filename).cpp')">
+<Target Name="CompileQtQRC" BeforeTargets="ClCompile" Inputs="@(ResFiles)" Outputs="@(ResFiles->'$(GenDir)/qrc_%(Filename).cpp')">
 	 <Message Text="Compiling: %(ResFiles.FullPath) using rcc" />
-	 <Exec Command="&quot;$(QTDIR)/bin/rcc.exe&quot; &quot;%(ResFiles.FullPath)&quot; -o &quot;%(ResFiles.RootDir)%(ResFiles.Directory)qrc_%(ResFiles.Filename).cpp&quot;"/>
+	 <Exec Command="&quot;$(QTDIR)/bin/rcc.exe&quot; &quot;%(ResFiles.FullPath)&quot; -o &quot;$(GenDir)/qrc_%(ResFiles.Filename).cpp&quot;"/>
+
+	 <ItemGroup>
+		<ClCompile Include="$(GenDir)/qrc_%(ResFiles.Filename).cpp" Condition="Exists('$(GenDir)/qrc_%(ResFiles.Filename).cpp')" />
+	 </ItemGroup> 	 
  </Target>		
  <Target Name="CreateDirectories" BeforeTargets="Moc">
 	<MakeDir Directories="$(GenDir)"/>
@@ -716,7 +720,7 @@ def qt_project(project, files, name, **kwargs):
 	<Configuration>Release</Configuration>
 	<OutDir>%s</OutDir>
 	<IntDir>%s</IntDir>
-	<QTDIR>%s</QTDIR>  
+	<QTDIR>E:\\Programming - VC Sdk\\Qt\\5.5\\msvc2012</QTDIR>  
 	<Moc>$(QTDIR)/bin/moc.exe</Moc>
 	<GenDir>moc_$(MSBuildProjectName)</GenDir>
   </PropertyGroup>
@@ -731,7 +735,7 @@ def qt_project(project, files, name, **kwargs):
 	  <AdditionalDependencies>%s</AdditionalDependencies>
 	</Link>    
   </ItemDefinitionGroup>
-		""" %  ( str(toolversion), str(toolset), outdir, intdir, serpent.triggers['qt-sdk'], _compileopts, ";".join(str(x) for x in defines), ";".join(str(x) for x in includes), _linkopts, ";".join(str(x) for x in libs)))
+		""" %  ( str(toolversion), str(toolset), outdir, intdir, _compileopts, ";".join(str(x) for x in defines), ";".join(str(x) for x in includes), _linkopts, ";".join(str(x) for x in libs)))
 
 		fobj.write("<ItemGroup>")
 		for x in configuration:
@@ -1071,11 +1075,6 @@ def shortcut(link, target, description, working_dir, arguments=""):
 		oLink.Arguments = arguments
 		oLink.Save()
 
-def ensure_path_exists(file):
-	directory = os.path.dirname(file)
-	directory = '.' if directory == '' else directory
-	if not os.path.exists(directory): os.mkdir(directory)
-
 
 def contents(file, contents=None, filename=None, variables=serpent.triggers):
 	
@@ -1092,14 +1091,13 @@ def contents(file, contents=None, filename=None, variables=serpent.triggers):
 	f.close()
 	'''
 
-	if contents is None:	
+	if contents is None:
 		f=open(filename,"r")
 		contents = f.read()
 		f.close()	
 	for x in variables:
 		var = variables[x].replace("\\","/")
 		contents = contents.replace("@" + x + "@", var)
-	ensure_path_exists(file)
 	f=open(file,"w")
 	f.write(contents)
 	f.close()	
