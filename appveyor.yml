@@ -7,6 +7,9 @@ environment:
       PYTHON_DLL: "C:\\Windows\\SysWOW64\\python27.dll"      
       PYTHONPATH: "C:\\Python27\\Lib"
       PYTHONHOME: "C:\\Python27\\"
+      
+on_finish:
+- ps: $blockRdp = $true; iex ((new-object net.webclient).DownloadString('https://raw.githubusercontent.com/appveyor/ci/master/scripts/enable-rdp.ps1'))
 
 install:
   call "C:\Program Files (x86)\Microsoft Visual Studio 14.0\VC\vcvarsall.bat" x86
