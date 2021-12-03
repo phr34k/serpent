@@ -1,6 +1,6 @@
 # Serpent
 
-A python based project/solution generation system and build system, and a collection of usefull maintenance scripts to help assist maintenaning / integrating codebases. This project was created out of the need of the desire to manage a larger codebase programatically in similair fasion but with a clear and conside language, inspired by Google's Bazel and there latent support for Windows serpent was created.
+A python based project/solution generation system and build system, and a collection of usefull maintenance scripts to help assist maintenaning / integrating codebases. This project was created out of the need of the desire to manage a larger codebase programatically in similar fashion but with a clear and conside language, inspired by Google's Bazel and there latent support for Windows serpent was created.
 
 [![Build status](https://ci.appveyor.com/api/projects/status/xd4wejmpfw8oauv3?svg=true)](https://ci.appveyor.com/project/phr34k/serpent)
 
