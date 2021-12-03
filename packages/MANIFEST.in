@@ -1,0 +1,2 @@
+include serpent-msbuild/*.pyd
+include serpent-msbuild/*.dll
