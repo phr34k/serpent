@@ -101,6 +101,7 @@ class _solution:
 		del output_value
 
 def _create_targets(project, string):
+	project = os.path.join( os.path.dirname(os.path.realpath(__file__)), project);
 	fobj = StringIO.StringIO()
 	fobj.write('<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">');
 	fobj.write(string)
