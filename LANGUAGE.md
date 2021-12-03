@@ -125,6 +125,17 @@ msbuild_ext.visual_studio_solution(
 )
 ```
 
+## Referencing projects via MSBuild Extension
+
+```
+msbuild_ext.external(
+	name = 'thirdparty_libzmq2',
+	project = 'Thirdparty/libzmq-master/builds/msvc/vs2012/libzmq/libzmq.vcxproj',
+	depends = ['thirdparty_libzmq2'],
+	configuration = ['Release', 'Debug'],
+	options = ["SolutionDir=" + serpent.path.abspath("Thirdparty/libzmq-master/builds/msvc/vs2012") + "/"]
+)
+```
 
 # Reserved Constructs
 
