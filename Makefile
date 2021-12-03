@@ -36,6 +36,7 @@ $(TARGET):$(SOURCES)
         $(PYTHON)python.exe package.py > embed.cpp
         cd ..
         $(CC) -I$(PYTHON)include -DWINDOWS -DHAVE_JUNCTIONS /Fointermediate\ /Fe$@ $** $(PYTHON)libs\python27.lib Shell32.lib Rpcrt4.lib Ole32.lib Advapi32.lib
+        nmake install
         -$(TARGET) rebuild /t:serpent_project /f:BUILDENV~ --python-sdk=$(PYTHON) --toolset=$(TOOLSET) /nolog
         del $(TARGET)      
         -$(TARGET2) rebuild /t:* /f:BUILDENV --python-sdk=$(PYTHON) --toolset=$(TOOLSET) /nolog
