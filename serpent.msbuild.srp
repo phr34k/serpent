@@ -65,9 +65,9 @@ class _solution:
 		output_value = fobj.getvalue();
 		fobj.close();
 		del fobj
-
-		output_stream = open(solution, 'r')
-		if output_stream is not None:
+		
+		if os.path.isfile(solution):
+			output_stream = open(solution, 'r')
 			value = output_stream.read()
 			output_stream.close()
 			if value != output_value:
@@ -78,7 +78,7 @@ class _solution:
 			output_stream = open(solution, 'w')
 			output_stream.write(output_value)
 			output_stream.close()			
-		del output_value			
+		del output_value
 
 
 def _msvc_to_runtime(runtime):
@@ -144,7 +144,7 @@ def cmake(name, project, folder, input, arguments = [], configuration = serpent.
 
 
 
-def visual_studio(project, files, name, deps = [], toolversion=serpent.default_toolversion, toolset=serpent.default_toolset, defines = [], includes = [], libs = [], compileopts = [], linkopts = [],  intdir='Intermediate\\', outdir='Release\\', resources=[], shared=Application, runtime = 'StaticRuntime', depends = [], configuration = serpent._configurations, condition = [] ):
+def visual_studio(project, files, name, deps = [], toolversion=serpent.default_toolversion, toolset=serpent.default_toolset, defines = [], includes = [], libs = [], libdirs = [], compileopts = [], linkopts = [],  intdir='Intermediate\\', outdir='Release\\', resources=[], shared=Application, runtime = 'StaticRuntime', depends = [], configuration = serpent._configurations, condition = [] ):
 	project = os.path.abspath(project)
 	intdir = os.path.abspath(intdir)
 	outdir = os.path.abspath(outdir)
@@ -155,6 +155,11 @@ def visual_studio(project, files, name, deps = [], toolversion=serpent.default_t
 			includes[x] = os.path.relpath(includes[x], os.path.dirname(project))
 		elif serpent.path.isabs(includes[x]) == False:
 			includes[x] = os.path.relpath(includes[x], os.path.dirname(project))
+	for x in range(len(libdirs)):
+		if libdirs[x].startswith('./'):
+			libdirs[x] = os.path.relpath(libdirs[x], os.path.dirname(project))
+		elif serpent.path.isabs(libdirs[x]) == False:
+			libdirs[x] = os.path.relpath(libdirs[x], os.path.dirname(project))
 	for x in range(len(files)):
 		if files[x].startswith('./'):
 			files[x] = os.path.relpath(files[x], os.path.dirname(project))
@@ -218,12 +223,13 @@ def visual_studio(project, files, name, deps = [], toolversion=serpent.default_t
       <RuntimeLibrary>%s</RuntimeLibrary>
     </ClCompile>
     <Link>
+      <AdditionalLibraryDirectories>%s;%%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <AdditionalOptions>%s %%(AdditionalOptions)</AdditionalOptions>
       <AdditionalDependencies>%s</AdditionalDependencies>
       <SubSystem>Console</SubSystem>
     </Link>    
   </ItemDefinitionGroup>    
-		""" %  (toolversion, toolset, _shared, outdir + '/', intdir + '/', _compileopts, ";".join(defines), ";".join(includes), runtime, _linkopts, ";".join(libs)))
+		""" %  (toolversion, toolset, _shared, outdir + '/', intdir + '/', _compileopts, ";".join(defines), ";".join(includes), runtime, ";".join(libdirs), _linkopts, ";".join(libs)))
 
 		for x in condition:
 			fobj.write("<PropertyGroup Condition=\"%s\">\n" % x.condition )
@@ -276,8 +282,8 @@ def visual_studio(project, files, name, deps = [], toolversion=serpent.default_t
 		fobj.close();
 		del fobj
 
-		output_stream = open(project, 'r')
-		if output_stream is not None:
+		if os.path.isfile(project):
+			output_stream = open(project, 'r')
 			value = output_stream.read()
 			output_stream.close()
 			if value != output_value:
@@ -399,9 +405,9 @@ def qt_project(project, files, name, deps = [], toolversion=serpent.default_tool
 		output_value = fobj.getvalue();
 		fobj.close();
 		del fobj
-
-		output_stream = open(project, 'r')
-		if output_stream is not None:
+		
+		if os.path.isfile(project):
+			output_stream = open(project, 'r')
 			value = output_stream.read()
 			output_stream.close()
 			if value != output_value:
