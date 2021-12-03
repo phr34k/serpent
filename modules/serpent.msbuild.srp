@@ -1,5 +1,17 @@
-import serpent, os, subprocess, ctypes, re, sys, StringIO
+import sys
+import os, subprocess, ctypes, re
 from itertools import chain
+
+try:
+    from StringIO import StringIO ## for Python 2
+except ImportError:
+    from io import StringIO ## for Python
+
+try:
+	import serpent
+except ImportError as e:
+	print(e)
+	sys.exit(-1)
 
 class _option(object):
 	def __init__(self, mapping, data = None):
@@ -111,7 +123,13 @@ def find_executable(executable, path=None):
 	"""
 	if path is None:
 		path = os.environ['PATH']
-	paths = path.split(os.pathsep)
+	
+	paths = []
+	if isinstance(path, str): 
+		paths = path.split(os.pathsep)
+	else:
+		paths = path
+
 	extlist = ['']
 	if os.name == 'os2':
 		(base, ext) = os.path.splitext(executable)
@@ -199,7 +217,7 @@ class _solution:
 
 		solutiondir = os.path.dirname(solution)
 		if not os.path.exists(solutiondir): os.mkdir(solutiondir)
-		fobj = StringIO.StringIO()
+		fobj = StringIO()
 		fobj.write("""Microsoft Visual Studio Solution File, Format Version %s.00\n\r""" % format);
 		fobj.write("""# Visual Studio %s\n\r""" % version);
 
@@ -237,7 +255,7 @@ class _solution:
 
 def _create_targets(directory, project, string):
 	project = os.path.join( directory, project)
-	fobj = StringIO.StringIO()
+	fobj = StringIO()
 	fobj.write('<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">');
 	fobj.write(string)
 	fobj.write('</Project>');
@@ -332,7 +350,7 @@ def commandline(name, project, folder, configuration = serpent._configurations, 
 			arguments = build(tools) if build else []
 			if not os.path.exists(os.path.dirname(project)): os.mkdir(os.path.dirname(project))
 
-			fobj = StringIO.StringIO()	
+			fobj = StringIO()	
 			fobj.write(
 			'''
 			<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003" InitialTargets="Build">
@@ -383,11 +401,11 @@ def cmake(name, project, folder, input, arguments = [], configuration = serpent.
 			print("error")
 
 	def generate(**kwargs):
-		print cmake, serpent._targets
+		print(cmake, serpent._targets)
 		if name in serpent._targets:
 			dict = { "vs2017": "Visual Studio 15 2017", "vs2015": "Visual Studio 14 2015"}
 			output = subprocess.call([cmake, "-G", dict[serpent.triggers['workspace']], relative_input] + arguments, cwd=folder)
-			print output
+			print(output)
 
 	serpent._premake.append(_premake)
 	serpent.target( name = name )
@@ -416,7 +434,7 @@ def visual_studio_filters(project, toolversion=serpent.default_toolversion, file
 
 	project = os.path.abspath(project)
 	project = project + ".filters"
-	fobj = StringIO.StringIO()	
+	fobj = StringIO()	
 	fobj.write('<?xml version="1.0" encoding="utf-8"?>\n')
 	fobj.write('<Project DefaultTargets="Build" ToolsVersion="%s" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">\n' % toolversion)
 
@@ -510,14 +528,15 @@ def visual_studio(project, files, name, **kwargs):
 	base = kwargs.get('base',  os.path.join( serpent._WORKING_ROOT, serpent._SERPENT_WORKAREA ) )
 	toolversion = kwargs.get('toolversion', serpent.default_toolversion)
 	toolset = kwargs.get('toolset', serpent.default_toolset)
-	defines = filter(lambda x: x is not None, kwargs.get('defines', []))
-	includes = filter(lambda x: x is not None, kwargs.get('includes', []))
-	libs = filter(lambda x: x is not None, kwargs.get('libs', []))
-	libdirs = filter(lambda x: x is not None, kwargs.get('libdirs', []))
+	defines = list(filter(lambda x: x is not None, kwargs.get('defines', [])))
+	includes = list(filter(lambda x: x is not None, kwargs.get('includes', [])))
+	libs = list(filter(lambda x: x is not None, kwargs.get('libs', [])))
+	libdirs = list(filter(lambda x: x is not None, kwargs.get('libdirs', [])))
 	compileopts = kwargs.get('compileopts', [])
 	linkopts = kwargs.get('linkopts', [])
 	intdir = kwargs.get('intdir', [])
 	outdir = kwargs.get('outdir', [])
+	platform = kwargs.get('platform', 'x64') 
 	resources = kwargs.get('resources', [])
 	shared = kwargs.get('shared', Application)
 	depends = kwargs.get('depends', [])
@@ -559,17 +578,38 @@ def visual_studio(project, files, name, **kwargs):
 		_linkopts = " ".join(linkopts);
 		if not os.path.exists(os.path.dirname(project)): os.mkdir(os.path.dirname(project))
 
-		fobj = StringIO.StringIO()	
+		fobj = StringIO()	
 		fobj.write("""
 <Project DefaultTargets="Build" ToolsVersion="%s" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
-  <PropertyGroup>
+  <PropertyGroup>  
 	<PlatformToolset>%s</PlatformToolset>
 	<ConfigurationType>%s</ConfigurationType>    
 	<Configuration>Release</Configuration>
 	<OutDir>%s</OutDir>
 	<IntDir>%s</IntDir>    
-  </PropertyGroup>
-  <ItemDefinitionGroup>
+  </PropertyGroup>\n""" %  (toolversion, toolset, _shared, outdir + '/', intdir + '/'))
+
+		fobj.write("  <ItemGroup Label=\"ProjectConfigurations\">\n")
+		for x in configuration:
+			fobj.write("""    <ProjectConfiguration Include="%s|Win32">\n""" % (x, ))
+			fobj.write("""      <Configuration>%s</Configuration>\n""" % x)
+			fobj.write("""      <Platform>%s</Platform>\n""" % (platform, )) 
+			fobj.write("""      <PlatformTarget>%s</PlatformTarget>\n""" % (platform, )) 
+			fobj.write("""    </ProjectConfiguration>\n""")
+		for x in configuration:
+			fobj.write("""    <ProjectConfiguration Include="%s|x64">\n""" % (x, ))
+			fobj.write("""      <Configuration>%s</Configuration>\n""" % x)
+			fobj.write("""      <Platform>%s</Platform>\n""" % (platform, )) 
+			fobj.write("""      <PlatformTarget>%s</PlatformTarget>\n""" % (platform, )) 
+			fobj.write("""    </ProjectConfiguration>\n""")			
+		fobj.write("  </ItemGroup>\n")		
+
+		# Generate the imports for the Visual Studio Project
+		props = kwargs.get('commonprops', "common.props")
+		for x in visual_studio_generator(1): fobj.write("  <Import Project=\"%s\" />\n" % x )
+		fobj.write("  <Import Project=\"%s\" />\n" % props)
+
+		fobj.write("""  <ItemDefinitionGroup>
 	<ClCompile>
 	  <AdditionalOptions>%s %%(AdditionalOptions)</AdditionalOptions>
 	  <PreprocessorDefinitions>%s</PreprocessorDefinitions>
@@ -580,52 +620,40 @@ def visual_studio(project, files, name, **kwargs):
 	  <AdditionalLibraryDirectories>%s;%%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
 	  <AdditionalOptions>%s %%(AdditionalOptions)</AdditionalOptions>
 	  <AdditionalDependencies>%s</AdditionalDependencies>
+	  <TargetMachine>Machine%s</TargetMachine>
 	  <SubSystem>Console</SubSystem>
 	</Link>    
-  </ItemDefinitionGroup>    
-
-		""" %  (toolversion, toolset, _shared, outdir + '/', intdir + '/', _compileopts, ";".join(str(x) for x in defines), ";".join(str(x) for x in includes), runtime, ";".join(str(x) for x in libdirs), _linkopts, ";".join(str(x) for x in libs)))
+  </ItemDefinitionGroup>\n""" % (_compileopts, (";".join(str(x) for x in defines)), (";".join(str(x) for x in includes)), runtime, (";".join(str(x) for x in libdirs)), 
+  _linkopts, (";".join(str(x) for x in libs)), platform.upper()) )		
 
 		for x in condition:
 			fobj.write("<PropertyGroup Condition=\"%s\">\n" % x.condition )
 			fobj.write("</PropertyGroup>\n")
-			fobj.write("<ItemDefinitionGroup Condition=\"%s\">\n" % x.condition )
-			fobj.write("<ClCompile>\n")
+			fobj.write("  <ItemDefinitionGroup Condition=\"%s\">\n" % x.condition )
+			fobj.write("  <ClCompile>\n")
 
 			__runtime = x.kwargs.get('runtime', None)			
 			if __runtime is not None:
 				__runtime = _msvc_to_runtime(__runtime)
-				fobj.write("<RuntimeLibrary>%s</RuntimeLibrary>\n" % __runtime)
+				fobj.write("  <RuntimeLibrary>%s</RuntimeLibrary>\n" % __runtime)
 			__compileopts = x.kwargs.get('compileopts', None)
 			if __compileopts is not None:
-				fobj.write("<AdditionalOptions>%s %%(AdditionalOptions)</AdditionalOptions>\n" % " ".join(__compileopts))
-			fobj.write("</ClCompile>\n")
-			fobj.write("<Link>\n")
-			fobj.write("</Link>\n")
+				fobj.write("  <AdditionalOptions>%s %%(AdditionalOptions)</AdditionalOptions>\n" % " ".join(__compileopts))
+			fobj.write("  </ClCompile>\n")
+			fobj.write("  <Link>\n")
+			fobj.write("  </Link>\n")
 			fobj.write("</ItemDefinitionGroup>\n")
-
-		fobj.write("<ItemGroup>")
-		for x in configuration:
-			fobj.write("""\t<ProjectConfiguration Include="%s|Win32">\n""" % x)
-			fobj.write("""\t\t<Configuration>%s</Configuration>\n""" % x)
-			fobj.write("""\t\t<Platform>Win32</Platform>\n""")
-			fobj.write("""\t</ProjectConfiguration>\n""")
-		fobj.write("</ItemGroup>")
-
-		# Generate the imports for the Visual Studio Project
-		props = kwargs.get('commonprops', "common.props")
-		for x in visual_studio_generator(1): fobj.write("<Import Project=\"%s\" />" % x )
-		fobj.write("<Import Project=\"%s\" />" % props)
 
 		resources_ = [('ClInclude', headers), ('ClCompile', files), ('ResourceCompile', resources)]
 		for resource_ in resources_:
-			fobj.write("<ItemGroup>\n");
+			fobj.write("  <ItemGroup>\n");
 			for x in resource_[1]:			
-				fobj.write("    <%s Include=\"%s\" />\n" % (resource_[0], x));
-			fobj.write("</ItemGroup>\n");
+				fobj.write("      <%s Include=\"%s\" />\n" % (resource_[0], x));
+			fobj.write("  </ItemGroup>\n");
 
 		# Generate the imports for the Visual Studio Project
-		for x in visual_studio_generator(2): fobj.write("<Import Project=\"%s\" />" % x );
+		# fobj.write("  <Import Project=\"$(VCTargetsPath)\\Microsoft.Cpp.targets\" />\n");
+		for x in visual_studio_generator(2): fobj.write("  <Import Project=\"%s\" />\n" % x );
 		fobj.write("</Project>");
 	
 		output_value = fobj.getvalue();
@@ -707,7 +735,7 @@ def qt_project(project, files, name, **kwargs):
 		_compileopts = " ".join(compileopts);
 		_linkopts = " ".join(linkopts);
 		if not os.path.exists(os.path.dirname(project)): os.mkdir(os.path.dirname(project))
-		fobj = StringIO.StringIO()
+		fobj = StringIO()
 		fobj.write("""
 <Project DefaultTargets="Build" ToolsVersion="%s" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <PropertyGroup>
@@ -716,7 +744,7 @@ def qt_project(project, files, name, **kwargs):
 	<Configuration>Release</Configuration>
 	<OutDir>%s</OutDir>
 	<IntDir>%s</IntDir>
-	<QTDIR>E:\\Programming - VC Sdk\\Qt\\5.5\\msvc2012</QTDIR>  
+	<QTDIR>%s</QTDIR>  
 	<Moc>$(QTDIR)/bin/moc.exe</Moc>
 	<GenDir>moc_$(MSBuildProjectName)</GenDir>
   </PropertyGroup>
@@ -729,9 +757,10 @@ def qt_project(project, files, name, **kwargs):
 	<Link>
 	  <AdditionalOptions>%s %%(AdditionalOptions)</AdditionalOptions>
 	  <AdditionalDependencies>%s</AdditionalDependencies>
+	  <TargetMachine>Machine%s</TargetMachine>
 	</Link>    
   </ItemDefinitionGroup>
-		""" %  ( str(toolversion), str(toolset), outdir, intdir, _compileopts, ";".join(str(x) for x in defines), ";".join(str(x) for x in includes), _linkopts, ";".join(str(x) for x in libs)))
+		""" %  ( str(toolversion), str(toolset), outdir, intdir, serpent.triggers['qt-sdk'], _compileopts, ";".join(str(x) for x in defines), ";".join(str(x) for x in includes), _linkopts, (";".join(str(x) for x in libs), platform )))
 
 		fobj.write("<ItemGroup>")
 		for x in configuration:
@@ -849,7 +878,7 @@ def msbuild(project, projects = [], prepostbuild=False):
 				for y in x.configurations or serpent._configurations:
 					fobj.write("    <ProjectToBuild Include=\"%s\">\n" % os.path.abspath(x.project));
 					options = ';'.join(x.options)
-					fobj.write("    <AdditionalProperties>Configuration=%s;%s</AdditionalProperties>\n" % (y, options))  
+					fobj.write("    <AdditionalProperties>Configuration=%s;Platform=x64;%s</AdditionalProperties>\n" % (y, options))  
 					fobj.write("    </ProjectToBuild>\n")
 
 		fobj.write("""
@@ -857,19 +886,19 @@ def msbuild(project, projects = [], prepostbuild=False):
 
 		fobj.write("""
 			<Target Name="Build">			    
-				<MSBuild Projects="@(ProjectToBuild)" Properties="Configuration=Release" Targets="Build" />
+				<MSBuild Projects="@(ProjectToBuild)" Targets="Build" />
 			</Target>
 		""")
 
 		fobj.write("""		    
 			<Target Name="Rebuild">
-				<MSBuild Projects="@(ProjectToBuild)" Properties="Configuration=Release" Targets="Rebuild" />
+				<MSBuild Projects="@(ProjectToBuild)" Targets="Rebuild" />
 			</Target>
 		""")
 
 		fobj.write("""
 			<Target Name="Clean">
-				<MSBuild Projects="@(ProjectToBuild)" Properties="Configuration=Release" Targets="Clean" />
+				<MSBuild Projects="@(ProjectToBuild)" Targets="Clean" />
 			</Target>
 		""")
 
@@ -941,7 +970,16 @@ def define_hgignore():
 			f.close()
 
 def build():
-	msbuild_exe = find_executable("msbuild", "C:\\Program Files (x86)\\MSBuild\\14.0\\Bin")
+	msbuild_exe = find_executable("msbuild", 
+		[	
+			"C:\\Program Files\\Microsoft Visual Studio\\2022\\Community\\Msbuild\\Current\\Bin\\amd64	",
+			"C:\\Program Files\\Microsoft Visual Studio\\2022\\Community\\Msbuild\\Current\\Bin",		
+			"C:\\Windows\\Microsoft.NET\\Framework64\\v4.0.30319",
+			"C:\\Program Files (x86)\\MSBuild\\14.0\\Bin"
+		])
+	if msbuild_exe is None:
+		print("Cannot find msbuild.exe") 
+		os.exit(-1)
 
 	def pregenerate(**kwargs):
 		for y in serpent._targets:
@@ -983,8 +1021,10 @@ def build():
 		for x in serpent._premake: x()
 		generate()
 		msbuild(project = entrypoint, projects = serpent._targets)
-		exit_code = subprocess.call([msbuild_exe, entrypoint, '/t:Build', '/p:Platform=Win32', '/p:ADK_PATH=E:\\Workspaces\\Import', '/verbosity:m',
-		'/flp:Summary;Verbosity=minimal;LogFile=.srp-workarea/BUILD_SUMMARY', '/flp1:warningsonly;logfile=.srp-workarea/BUILD_WARNINGS', '/flp2:errorsonly;logfile=.srp-workarea/BUILD_ERRORS', '/maxcpucount:4'])
+		args = [msbuild_exe, entrypoint, '/t:Build',  '/p:ADK_PATH=E:\\Workspaces\\Import', '/verbosity:m',
+		'/flp:Summary;Verbosity=minimal;LogFile=.srp-workarea/BUILD_SUMMARY', '/flp1:warningsonly;logfile=.srp-workarea/BUILD_WARNINGS', '/flp2:errorsonly;logfile=.srp-workarea/BUILD_ERRORS', '/maxcpucount:4']
+		print(args)
+		exit_code = subprocess.call(args)
 		sys.exit(exit_code);
 	if serpent.action == "rebuild":
 		entrypoint = ".srp-workarea/common.msproj"	
@@ -1013,18 +1053,18 @@ def build():
 		sys.exit(exit_code);
 
 def target_run():
-	print ""
+	print("")
 	for x in serpent._targets:
 		project_file = serpent.projects.get(x, None)
 		outdir = serpent.outdirs.get(x, None)
 
 		if not project_file: continue
-		print "Running.... %s" % project_file
+		print("Running.... %s" % project_file)
 		executable =  os.path.join(os.path.dirname(project_file), outdir) + "/" + os.path.splitext(os.path.basename(project_file))[0] + ".exe"
-		print executable
+		print(executable)
 		subprocess.call([executable])
-		print ""
-		print ""				
+		print("")
+		print("")				
 
 
 serpent.build = build;
@@ -1033,7 +1073,7 @@ del build
 del target_run
 
 
-_create_targets(os.path.dirname(__file__),'../dist/qt.targets', qt_targets)
+if os.path.isfile('../dist/qt.targets'): _create_targets(os.path.dirname(__file__),'../dist/qt.targets', qt_targets)
 
 
 def execute_process(
@@ -1071,6 +1111,11 @@ def shortcut(link, target, description, working_dir, arguments=""):
 		oLink.Arguments = arguments
 		oLink.Save()
 
+def ensure_path_exists(file):
+	directory = os.path.dirname(file)
+	directory = '.' if directory == '' else directory
+	if not os.path.exists(directory): os.mkdir(directory)
+
 
 def contents(file, contents=None, filename=None, variables=serpent.triggers):
 	
@@ -1087,13 +1132,14 @@ def contents(file, contents=None, filename=None, variables=serpent.triggers):
 	f.close()
 	'''
 
-	if contents is None:
+	if contents is None:	
 		f=open(filename,"r")
 		contents = f.read()
 		f.close()	
 	for x in variables:
 		var = variables[x].replace("\\","/")
 		contents = contents.replace("@" + x + "@", var)
+	ensure_path_exists(file)
 	f=open(file,"w")
 	f.write(contents)
 	f.close()	

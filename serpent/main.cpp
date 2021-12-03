@@ -354,7 +354,13 @@ static PyObject* emb_glob(PyObject *self, PyObject *args, PyObject *kwargs)
     {
         for( int i = 0, c = PyList_Size(exclude); i < c; ++i ) {
             PyObject* item = PyList_GetItem(exclude, i);
-            char* value = PyString_AsString(item);
+
+            #if PY_MAJOR_VERSION >= 3
+            const char* value = PyUnicode_AsUTF8(item);
+            #else
+            const char* value = PyString_AsString(item);
+            #endif
+
             glob.AddExclusivePattern(value);
         }
     }
@@ -363,14 +369,24 @@ static PyObject* emb_glob(PyObject *self, PyObject *args, PyObject *kwargs)
     {
         for( int i = 0, c = PyList_Size(ignore); i < c; ++i ) {
             PyObject* item = PyList_GetItem(ignore, i);
-            char* value = PyString_AsString(item);
+            #if PY_MAJOR_VERSION >= 3
+            const char* value = PyUnicode_AsUTF8(item);
+            #else
+            const char* value = PyString_AsString(item);
+            #endif
+            
             glob.AddIgnorePattern(value);
         }
     }
 
     for( int i = 0, c = PyList_Size(include); i < c; ++i ) {
         PyObject* item = PyList_GetItem(include, i);
-        char* value = PyString_AsString(item);
+            #if PY_MAJOR_VERSION >= 3
+            const char* value = PyUnicode_AsUTF8(item);
+            #else
+            const char* value = PyString_AsString(item);
+            #endif
+            
         glob.MatchPattern( value );
     }
 
@@ -788,11 +804,11 @@ std::string get_environment_var()
 
 void load_serpent_home_dir()
 {
-	char userprofile[2048]= {0};
-    if( GetEnvironmentVariable("SERPENTHOME", userprofile, 2048) == 0 ) {
+	wchar_t userprofile[2048]= {0};
+    if( GetEnvironmentVariableW(L"SERPENTHOME", userprofile, 2048) == 0 ) {
     	Py_SetPythonHome(0);
     } else {
-    	ExpandEnvironmentStrings("%SERPENTHOME%", userprofile, 2048);
+    	ExpandEnvironmentStringsW(L"%SERPENTHOME%", userprofile, 2048);
     	Py_SetPythonHome(userprofile);
     }
 }
@@ -852,6 +868,20 @@ void create_junction(const char* source, const char* dest)
     #endif  
 }
 
+static struct PyModuleDef serpent =
+{
+    PyModuleDef_HEAD_INIT,
+    "serpent", /* name of module */
+    "",          /* module documentation, may be NULL */
+    -1,          /* size of per-interpreter state of the module, or -1 if the module keeps state in global variables. */
+    EmbMethods
+};
+
+PyMODINIT_FUNC PyInit_serpent(void)
+{
+    return PyModule_Create(&serpent);
+}
+
 int main(int argc, char** argv)
 {
   //Create the directory
@@ -905,8 +935,17 @@ int main(int argc, char** argv)
       workarea.append(hex);
       CreateDirectory(workarea.c_str(), false);
 
+      /* Add a built-in module, before Py_Initialize */
+      if (PyImport_AppendInittab("serpent", PyInit_serpent) == -1) {
+        fprintf(stderr, "Error: could not extend in-built modules table\n");
+        return false;
+      }
+
 
         Py_Initialize();
+        obj = PyImport_ImportModule("serpent");
+        //obj = PyImport_GetModule(Py_BuildValue("s", "serpent"));
+
         load_serpent_home_dir();  
  
       std::string workareaRelative;
@@ -921,8 +960,8 @@ int main(int argc, char** argv)
       options = PyDict_New();
       targets = PyList_New(0);
       platforms = PyList_New(0);
-      
-      obj = Py_InitModule("serpent", EmbMethods);
+
+      //obj = PyInit_serpent();
       PyObject_SetAttrString(obj, "content", Py_BuildValue("i", false));
       PyObject_SetAttrString(obj, "action", Py_BuildValue("s", argv[lastKnownOption]));
       PyObject_SetAttrString(obj, "triggers", options);
@@ -984,8 +1023,18 @@ int main(int argc, char** argv)
       myfile.open(".srp/cache/" + hex);      
       myfile << "if serpent._WORKING_ROOT ==  r\"" << workingDirectory << "\":\n";
       while (PyDict_Next(options, &pos, &key, &value)) {
-          const char* k = PyString_AsString(key);
-          const char* v = PyString_AsString(value);
+            #if PY_MAJOR_VERSION >= 3
+            const char* k = PyUnicode_AsUTF8(key);
+            #else
+            const char* k = PyString_AsString(key);
+            #endif
+            
+                      #if PY_MAJOR_VERSION >= 3
+            const char* v = PyUnicode_AsUTF8(value);
+            #else
+            const char* v = PyString_AsString(value);
+            #endif
+            
 
           int length = strlen(v);
 

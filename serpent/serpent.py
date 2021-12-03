@@ -1,4 +1,10 @@
-import os, tarfile, StringIO, warnings
+import os, tarfile, warnings
+
+try:
+    from StringIO import StringIO ## for Python 2
+except ImportError:
+    from io import StringIO ## for Python 
+
 warnings.simplefilter("ignore")
 path=os.path
 
@@ -70,7 +76,7 @@ def download(url, hash = None):
           f.write(buffer)
           status = r"%10d  [%3.2f%%]" % (file_size_dl, file_size_dl * 100. / file_size)
           status = status + chr(8)*(len(status)+1)
-          print status,
+          print(status)
       f.close()
     def _call():
       _download(url=url, hash=hash)
@@ -85,7 +91,7 @@ def artifact(id, version, files = [], dependecies = []):
     tar = tarfile.open(".srp/%s.%s.tar.bz2" % (id, version), "r:bz2")
     f=tar.extractfile('.spkg')
     content=f.read()
-    print content
+    print(content)
 
     for file in tar:
       data = tar.extractfile(file.name).read()
@@ -112,10 +118,10 @@ def artifact(id, version, files = [], dependecies = []):
     for name in files:
       relative_path = os.path.relpath(name, os.path.dirname(workingdir))
       tar.add(name, arcname=relative_path)
-      print relative_path
+      print(relative_path)
     tar.close()
   def _create():
-    print "create artifacts"
+    print("create artifacts")
     _artifact_create(id=id, version=version, files=files, dependecies=dependecies)
   def _inst():
     _artifact_install(id=id, version=version)
@@ -131,26 +137,26 @@ def build():
        g[functionName]()
 
 def target_build():
-  print "Building..."     
+  print("Building...")     
 
 def target_rebuild():
-  print "Rebuilding..."
+  print("Rebuilding...")
   g = globals()
 
 def target_clean():    
-  print "Clean..."
+  print("Clean...")
 
 def target_package():
   for x in _publish:
     x()
      
 def target_package():
-  print "Packaging artifacts..."
+  print("Packaging artifacts...")
   for x in _artifacts:
     x()
 
 def target_install():
-  print "Resolving artifacts..."
+  print("Resolving artifacts...")
   for x in _install:
     x()
 
@@ -161,7 +167,7 @@ def target_postbuild():
   for x in _postbuild: x()
 
 def target_run():  
-  print "run"
+  print("run")
 
 
 _environment = environment

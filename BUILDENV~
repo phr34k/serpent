@@ -1,6 +1,14 @@
+print("hello")
+
 serpent.option(
    trigger     = "python-sdk",
    value       = "C:\\Python27\\",
+   description = "Python sdk location"
+)
+
+serpent.option(
+   trigger     = "python-version",
+   value       = "python27",
    description = "Python sdk location"
 )
 
@@ -9,6 +17,13 @@ serpent.option(
    value       = "v140",
    description = "Visual Studio Toolset"
 )
+
+serpent.option(
+   trigger     = "machine",
+   value       = "x64",
+   description = "Target platform"
+)
+
 
 msbuild_ext = serpent.load('serpent.msbuild.srp');
 
@@ -21,6 +36,7 @@ msbuild_ext.visual_studio(
 	defines = ['WINDOWS', 'HAVE_JUNCTIONS'],
 	outdir = 'Bin/Release/',
 	intdir = 'Intermediate/env/',
+	platform = serpent.triggers['machine'],
 	includes = [serpent.path.join(serpent.triggers['python-sdk'], 'include')],
-	libs = [serpent.path.join(serpent.triggers['python-sdk'], 'libs/python27.lib'), ':Rpcrt4.lib']
+	libs = [serpent.path.join(serpent.triggers['python-sdk'], 'libs/' + serpent.triggers['python-version'] + '.lib'), ':Rpcrt4.lib', ':Advapi32.lib', ':Shell32.lib', ':Ole32.lib']
 )

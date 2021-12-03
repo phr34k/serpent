@@ -1,7 +1,10 @@
 
 PYTHON=C:\Python27\ 
-PYTHON_DLL=$(PYTHON)python27.dll
-PYTHONLOCATE="exec \"\"\"\nimport win32process, shutil\nfor process in win32process.EnumProcessModules(-1):\n  name = win32process.GetModuleFileNameEx(-1, process)\n  if 'python27.dll' in name:\n    shutil.copyfile(name,'.srp-workarea/bin/release/python27.dll')\n\"\"\""
+PYTHONVERSION=python27        
+PYTHON_DLL=$(PYTHON)python310.dll
+PYTHON_LIB=$(PYTHON)libs\python310.lib
+MACHINE=x64
+PYTHONLOCATE="exec(\"\"\"\nimport win32process, shutil\nfor process in win32process.EnumProcessModules(-1):\n  name = win32process.GetModuleFileNameEx(-1, process)\n  if 'python310.dll' in name:\n    shutil.copyfile(name,'.srp-workarea/bin/release/python310.dll')\n\"\"\")"
 TARGET=bin\release\denv.exe
 TARGET2=.srp-workarea\bin\release\env.exe
 TOOLSET=v140
@@ -47,11 +50,11 @@ $(TARGET):$(SOURCES)
         cd serpent
         $(PYTHON)python.exe package.py > embed.cpp
         cd ..
-        $(CC) -I$(PYTHON)include -DWINDOWS -DHAVE_JUNCTIONS /Fointermediate\ /Fe$@ $** $(PYTHON)libs\python27.lib Shell32.lib Rpcrt4.lib Ole32.lib Advapi32.lib
+        $(CC) -I$(PYTHON)include -DWINDOWS -DHAVE_JUNCTIONS /Fointermediate\ /Fe$@ $** $(PYTHON_LIB) Shell32.lib Rpcrt4.lib Ole32.lib Advapi32.lib
 	    -copy .srp\modules\serpent.msbuild.srp modules        
         -copy modules\serpent.msbuild.srp .srp\modules
 
-        -$(TARGET) rebuild /t:serpent_project /f:BUILDENV~ --python-sdk=$(PYTHON) --toolset=$(TOOLSET)
+        -$(TARGET) rebuild /t:serpent_project /f:BUILDENV~ --python-sdk=$(PYTHON) --toolset=$(TOOLSET) --python-version=$(PYTHONVERSION) --machine=$(MACHINE)
         del $(TARGET)              
         $(PYTHON)\python.exe -c $(PYTHONLOCATE)        
 
