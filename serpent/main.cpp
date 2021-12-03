@@ -14,6 +14,11 @@
 #error
 #endif
 
+#ifdef HAVE_CURL
+#include "curl/curl.h"
+#endif 
+
+std::string userdir = "";
 std::string file = "BUILDENV";
 PyObject* obj = 0;
 PyObject *options = 0;
@@ -27,12 +32,93 @@ std::map<std::string, std::string> _options_desc;
 std::map<std::string, std::string> _options_value;
 std::set<std::string> _targets;
 
+#ifdef HAVE_CURL
+CURL *curl;  
+CURLcode result;
+
+
+// This is the writer call back function used by curl  
+int writer2(char *data, size_t size, size_t nmemb, std::string *buffer)  
+{  
+  // What we will return  
+  int result = 0;  
+  
+  // Is there anything in the buffer?  
+  if (buffer != NULL)  
+  {  
+    // Append the data to the buffer  
+    buffer->append(data, size * nmemb);   
+    result = size * nmemb;  
+  }  
+	  
+  return result;  
+}
+
+#endif //HAVE_CURL
+
 
 static PyObject* emb_load(PyObject *self, PyObject *args)
-{
+{	
+	std::string v = userdir;	
     const char *command;
     if (!PyArg_ParseTuple(args, "s", &command))
         return Py_BuildValue("");
+	
+    if( strstr(command,"http"))
+    {
+		std::string name(strrchr(command,'/') + 1);
+		v.append(name);
+		const char *url = command;
+		command = v.c_str();
+
+		std::ifstream f(command);
+    	if( f.good() == false || _debug == true )
+    	{
+    		f.close();
+
+    		#ifdef HAVE_CURL    		
+			std::string dbuffer3;
+			curl_easy_setopt(curl, CURLOPT_URL, url);
+	  		char errbuf[CURL_ERROR_SIZE];
+	  		curl_easy_setopt(curl, CURLOPT_ERRORBUFFER, errbuf);
+			curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, 0L);
+	   		curl_easy_setopt(curl, CURLOPT_HEADER, 0);  
+	   		curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1);  
+	   		curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, writer2);  
+		   	curl_easy_setopt(curl, CURLOPT_WRITEDATA, &dbuffer3);
+	   		result = curl_easy_perform(curl);
+	   		long http_code = 0;
+			curl_easy_getinfo (curl, CURLINFO_RESPONSE_CODE, &http_code);
+
+		    if (result == CURLE_OK && http_code == 200 )  
+		    {  						
+			    std::ofstream out(v,std::ofstream::binary);
+			    out << dbuffer3;
+			    out.close();
+
+			    if( _debug == true ) {
+					printf("Loading module packages %s\n", command);
+				}
+		    }
+		    else
+		    {
+				if( _debug == true ) {
+					printf("Error while loading module packages %s %s\n", command, errbuf);					
+				}
+
+		    	return Py_BuildValue("");
+		    }
+		    #else
+		    return Py_BuildValue("");
+		    if( _debug == true ) {
+				printf("Loading module packages is disabled %s\n", command);
+			}
+		    #endif
+    	}
+    }
+    
+
+     
 
 	char abspath[4096];
 	_fullpath(abspath, command, 4096);
@@ -62,7 +148,7 @@ static PyObject* emb_load(PyObject *self, PyObject *args)
 	} else {
 		if( _debug == true ) {
 			printf("Loading existing module %s\n", abspath);
-		}		
+		}
 		Py_INCREF(_modules_loaded.find(abspath)->second);
 		return _modules_loaded.find(abspath)->second;
 	}	
@@ -365,9 +451,15 @@ std::string get_environment_var()
 int main(int argc, char** argv)
 {
 	//Create the directory
-	std::string var = get_environment_var();
-	var.append("/.srp/");
-	CreateDirectory(var.c_str(), false);
+	userdir = get_environment_var();
+	userdir.append("/.srp/");
+	CreateDirectory(userdir.c_str(), false);
+
+
+	#ifdef HAVE_CURL	
+	curl = curl_easy_init();
+	#endif  
+
 
 	char workingDirectory[2048];
 	_getcwd(workingDirectory, 2048);
@@ -441,6 +533,10 @@ int main(int argc, char** argv)
 	*/
 
 	Py_Finalize();
+
+	#ifdef HAVE_CURL
+	curl_easy_cleanup(curl);
+	#endif
 
 
 	if( argv[1] != 0 && strcmp(argv[1], "help") == 0)
