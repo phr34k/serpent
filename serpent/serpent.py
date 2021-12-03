@@ -9,11 +9,20 @@ _premake = []
 _install = []
 _artifacts = []
 
+default = (,)
+
+def select(values):
+  if True in values:
+     return values[True]
+  if default in values:
+     return values[default]
+  return None
+
 def join(*args, **kwargs):  
   workingdir= kwargs.get('workingdir', '.')
   l = []
   for x in range(len(args)):
-    l.append(os.path.join(workingdir, args[x]))
+    l.append(path.join(workingdir, args[x]))
   return l
 
 def enum(**enums):
@@ -93,4 +102,4 @@ def target_install():
     x()
 
 def target_run():  
-  pass
+  print "run"
