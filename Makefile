@@ -21,6 +21,11 @@ clean:
         -rmdir bin\release /S /Q        
         -rmdir bin /S /Q
 
+embed:
+		cd serpent
+        $(PYTHON)python.exe package.py > embed.cpp	
+		cd ..        
+
 install_modules:
         -copy serpent.msbuild.srp .srp\modules
         -copy bin\release\env.exe .srp\.bin\srp.exe
@@ -33,12 +38,14 @@ $(TARGET):$(SOURCES)
 	-mkdir bin
 	-mkdir bin\release
 	-mkdir intermediate
+        -del intermediate\*.obj /q	
         $(PYTHON)\python.exe -c $(PYTHONLOCATE)
         cd serpent
         $(PYTHON)python.exe package.py > embed.cpp
         cd ..
         $(CC) -I$(PYTHON)include -DWINDOWS -DHAVE_JUNCTIONS /Fointermediate\ /Fe$@ $** $(PYTHON)libs\python27.lib Shell32.lib Rpcrt4.lib Ole32.lib Advapi32.lib
-        nmake install_modules
+        -copy serpent.msbuild.srp .srp\modules               
         -$(TARGET) rebuild /t:serpent_project /f:BUILDENV~ --python-sdk=$(PYTHON) --toolset=$(TOOLSET) /nolog
-        del $(TARGET)      
+        del $(TARGET)              
         -$(TARGET2) rebuild /t:* /f:BUILDENV --python-sdk=$(PYTHON) --toolset=$(TOOLSET) /nolog
+        -copy bin\release\env.exe .srp\.bin\srp.exe

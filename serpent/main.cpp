@@ -93,6 +93,7 @@ PyObject *main_dict = 0;
 
 bool _nolog = false;
 bool _debug = false;
+bool _runstring = true;
 std::map<std::string, PyObject*>   _modules_loaded;
 std::map<std::string, std::string> _options_desc;
 std::map<std::string, std::string> _options_value;
@@ -236,17 +237,29 @@ static PyObject* emb_load(PyObject *self, PyObject *args)
 			printf("Loading new module %s\n", abspath.c_str());
 		}
 
-		std::ifstream t(abspath);
-		std::string str((std::istreambuf_iterator<char>(t)),
-						 std::istreambuf_iterator<char>());
-
 		PyObject *pName, *pModule, *pArgs, *pValue, *pFunc;
 		PyObject *pNewMod = PyModule_New(command);
 		PyModule_AddStringConstant(pNewMod, "__file__", abspath.c_str());
 		PyObject *pLocal = PyModule_GetDict(pNewMod);
 		PyDict_SetItemString(pLocal, "__builtins__", PyEval_GetBuiltins());
-		pValue = PyRun_String(str.c_str(), Py_file_input, pLocal, pLocal);
+
+    if( _runstring == false )
+    {
+        FILE *fs = fopen(abspath.c_str(), "r");
+        pValue = PyRun_File(fs, abspath.c_str(), Py_file_input, pLocal, pLocal);
+        fclose(fs);      
+    }
+    else
+    {
+        std::ifstream t(abspath);
+        std::string str((std::istreambuf_iterator<char>(t)),
+             std::istreambuf_iterator<char>());
+        pValue = PyRun_String(str.c_str(), Py_file_input, pLocal, pLocal);
+    }
+
+
 		if (pValue == NULL) {
+       printf("Error occured on module file %s\n", abspath.c_str());
 		   PyErr_Print();
 		}
 		_modules_loaded[abspath] = pNewMod;
@@ -494,8 +507,24 @@ static PyObject* emb_run(PyObject *self, PyObject *args)
 		PyObject *pLocal = PyModule_GetDict(pNewMod);
 		PyDict_SetItemString(pLocal, "serpent", obj);
 		PyDict_SetItemString(pLocal, "__builtins__", PyEval_GetBuiltins());
-		pValue = PyRun_String(str.c_str(), Py_file_input, pLocal, pLocal);
+
+
+    if( _runstring == false )
+    {
+        FILE *fs = fopen(abspath, "r");
+        pValue = PyRun_File(fs, abspath, Py_file_input, pLocal, pLocal);
+        fclose(fs);        
+    }
+    else
+    {
+        std::ifstream t(abspath);
+        std::string str((std::istreambuf_iterator<char>(t)),
+             std::istreambuf_iterator<char>());
+        pValue = PyRun_String(str.c_str(), Py_file_input, pLocal, pLocal);
+    }    
+
 		if (pValue == NULL) {
+       printf("Error occured on build file %s\n", abspath);
 		   PyErr_Print();
 		}
 		SetCurrentDirectoryA(workingDirectory);
@@ -705,6 +734,9 @@ bool parse_argv(char* action, char** argv, int argc, char** workspaceFolder, cha
 		else if( argv[i][0] == '-' && argv[i][1] == '-' && argv[i][2] == 't' && argv[i][3] == 0 ) {
 			_debug = true;
 		}
+    else if( argv[i][0] == '-' && argv[i][1] == '-' && argv[i][2] == 'r' && argv[i][3] == 0 ) {
+      _runstring = false;
+    }    
 		else if( argv[i][0] == '-' && argv[i][1] == '-' && strchr(&argv[i][2], '=') != 0 ) {
 			std::string name(&argv[i][2], strchr(&argv[i][2], '='));
 			std::string value(strchr(&argv[i][2], '=') + 1);

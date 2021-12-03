@@ -1,7 +1,49 @@
-import serpent, os, subprocess, ctypes, re, sys, StringIO, warnings
+import serpent, os, subprocess, ctypes, re, sys, StringIO
+
+class _option(object):
+	def __init__(self, mapping, data = None):
+		self.mapping = mapping
+		self.value = None
+		self.data = data
+	def __str__(self):
+		if self.value is None: self.value = self.mapping(self.data)
+		return str(self.value)
+
+serpent.map = _option
+
+
+
+serpent.option(
+   trigger     = "workspace",
+   value       = "vs2015",
+   description = "Visual Studio"
+)
+
+visual_studio_version = serpent.map(
+	lambda x: dict(x)[serpent.triggers['workspace']],
+	data = [("vs2015", 2015), ("vs2017", 2017)]
+)
+
+visual_studio_internal = serpent.map(
+	lambda x: dict(x)[serpent.triggers['workspace']],
+	data = [("vs2015", 14),("vs2017", 15)]
+)
+
+visual_studio_toolset = serpent.map(
+	lambda x: dict(x)[serpent.triggers['workspace']],
+	data = [("vs2015", 'v140'),("vs2017", 'v141')]
+)
+
+serpent.option(
+   trigger     = "toolset",
+   value       = str(visual_studio_toolset),
+   description = "Visual Studio Toolset"
+)
+
+
+
 
 def debuginfo():
-	warnings.simplefilter("ignore")
 	from inspect import getframeinfo, stack
 	caller = getframeinfo(stack()[2][0])
 	return caller.filename, caller.lineno
@@ -26,69 +68,69 @@ qt_targets = """
 	 <Exec Command="&quot;$(QTDIR)/bin/rcc.exe&quot; &quot;%(ResFiles.FullPath)&quot; -o &quot;%(ResFiles.RootDir)%(ResFiles.Directory)qrc_%(ResFiles.Filename).cpp&quot;"/>
  </Target>		
  <Target Name="CreateDirectories" BeforeTargets="Moc">
-    <MakeDir Directories="$(GenDir)"/>
+	<MakeDir Directories="$(GenDir)"/>
  </Target>
  <Target Name="Moc" Inputs="@(QtIncludes)" BeforeTargets="ClCompile" Outputs="@(QtIncludes->'$(GenDir)/moc_%(Filename).cpp')">
-    <Exec Command = "&quot;$(Moc)&quot; &quot;%(QtIncludes.identity)&quot; -nw -o &quot;$(GenDir)/moc_%(Filename).cpp&quot; $(MocFlags)"/>
-  	<ItemGroup>
-        <ClCompile Include="$(GenDir)/moc_%(Filename).cpp" Condition="Exists('$(GenDir)/moc_%(Filename).cpp')" />
-    </ItemGroup> 
+	<Exec Command = "&quot;$(Moc)&quot; &quot;%(QtIncludes.identity)&quot; -nw -o &quot;$(GenDir)/moc_%(Filename).cpp&quot; $(MocFlags)"/>
+	<ItemGroup>
+		<ClCompile Include="$(GenDir)/moc_%(Filename).cpp" Condition="Exists('$(GenDir)/moc_%(Filename).cpp')" />
+	</ItemGroup> 
  </Target>
  <Target Name="CompileQtUI" BeforeTargets="ClCompile" Inputs="@(UIFiles)" Outputs="@(UIFiles->'$(GenDir)/ui_%(Filename).h')">
- 	<Message Text="Compiling: %(UIFiles.FullPath) using UIC" />
- 	<Exec Command="&quot;$(QTDIR)\\bin\\uic.exe&quot; &quot;%(UIFiles.FullPath)&quot; -o &quot;$(GenDir)/ui_%(UIFiles.Filename).h&quot;"/>
+	<Message Text="Compiling: %(UIFiles.FullPath) using UIC" />
+	<Exec Command="&quot;$(QTDIR)\\bin\\uic.exe&quot; &quot;%(UIFiles.FullPath)&quot; -o &quot;$(GenDir)/ui_%(UIFiles.Filename).h&quot;"/>
 </Target>
 """
 
 
 def which(pgm):
-    path=os.getenv('PATH')
-    for p in path.split(os.path.pathsep):
-        p=os.path.join(p,pgm)
-        if os.path.exists(p) and os.access(p,os.X_OK):
-            return p
+	path=os.getenv('PATH')
+	for p in path.split(os.path.pathsep):
+		p=os.path.join(p,pgm)
+		if os.path.exists(p) and os.access(p,os.X_OK):
+			return p
 
 def find_executable(executable, path=None):
-    """Find if 'executable' can be run. Looks for it in 'path'
-    (string that lists directories separated by 'os.pathsep';
-    defaults to os.environ['PATH']). Checks for all executable
-    extensions. Returns full path or None if no command is found.
-    """
-    if path is None:
-        path = os.environ['PATH']
-    paths = path.split(os.pathsep)
-    extlist = ['']
-    if os.name == 'os2':
-        (base, ext) = os.path.splitext(executable)
-        # executable files on OS/2 can have an arbitrary extension, but
-        # .exe is automatically appended if no dot is present in the name
-        if not ext:
-            executable = executable + ".exe"
-    elif sys.platform == 'win32':
-        pathext = os.environ['PATHEXT'].lower().split(os.pathsep)
-        (base, ext) = os.path.splitext(executable)
-        if ext.lower() not in pathext:
-            extlist = pathext
-    for ext in extlist:
-        execname = executable + ext
-        if os.path.isfile(execname):
-            return execname
-        else:
-            for p in paths:
-                f = os.path.join(p, execname)
-                if os.path.isfile(f):
-                    return f
-    else:
-        return None
+	"""Find if 'executable' can be run. Looks for it in 'path'
+	(string that lists directories separated by 'os.pathsep';
+	defaults to os.environ['PATH']). Checks for all executable
+	extensions. Returns full path or None if no command is found.
+	"""
+	if path is None:
+		path = os.environ['PATH']
+	paths = path.split(os.pathsep)
+	extlist = ['']
+	if os.name == 'os2':
+		(base, ext) = os.path.splitext(executable)
+		# executable files on OS/2 can have an arbitrary extension, but
+		# .exe is automatically appended if no dot is present in the name
+		if not ext:
+			executable = executable + ".exe"
+	elif sys.platform == 'win32':
+		pathext = os.environ['PATHEXT'].lower().split(os.pathsep)
+		(base, ext) = os.path.splitext(executable)
+		if ext.lower() not in pathext:
+			extlist = pathext
+	for ext in extlist:
+		execname = executable + ext
+		if os.path.isfile(execname):
+			return execname
+		else:
+			for p in paths:
+				f = os.path.join(p, execname)
+				if os.path.isfile(f):
+					return f
+	else:
+		return None
 
 def find_file(file, paths=None):
-    paths = path.split(os.pathsep)
-    for p in paths:
-        f = os.path.join(p, file)
-        if os.path.isfile(f):
-            return f
-    else:
-        return None
+	paths = path.split(os.pathsep)
+	for p in paths:
+		f = os.path.join(p, file)
+		if os.path.isfile(f):
+			return f
+	else:
+		return None
 
 def find_guid(file):
 	f = open(file, 'r')
@@ -105,15 +147,6 @@ def find_guid(file):
 class _placeholder:
 	def __init__(self):
 		self.generated = None
-
-class _option(object):
-    def __init__(self, mapping, data = None):
-        self.mapping = mapping
-        self.value = None
-        self.data = data
-    def __str__(self):
-    	if self.value is None: self.value = self.mapping(self.data)
-        return str(self.value)
 
 class _external:
 	def __init__(self, project, name, guid, configurations = None, depends = None, options = [], generate = None, debug=None):
@@ -295,15 +328,15 @@ def visual_studio_dirname(x):
 def visual_studio_filters_expand(files, strip=visual_studio_dirname, directory = {}):
 	extension = 'rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;cpp;c;cc;cxx;def;odl;idl;hpj;bat;asm;asmx;h;hpp;hxx;hm;inl;inc;xsd'
 	for x in files:
-  		x = strip(x)
-  		directory[x] = (serpent.guid(), extension)
-  		array = x.split("\\")
-  		path = array[0]
-  		for z in array[1:]:
-  			if path not in directory:
-  				directory[path] = (serpent.guid(), extension)
-  			path = path + "\\" + z
-  	return directory
+		x = strip(x)
+		directory[x] = (serpent.guid(), extension)
+		array = x.split("\\")
+		path = array[0]
+		for z in array[1:]:
+			if path not in directory:
+				directory[path] = (serpent.guid(), extension)
+			path = path + "\\" + z
+	return directory
 
 
 def visual_studio_filters(project, toolversion=serpent.default_toolversion, files = [], headers = []):
@@ -328,16 +361,16 @@ def visual_studio_filters(project, toolversion=serpent.default_toolversion, file
 
 	fobj.write("<ItemGroup>\n");
 	for x in files:
-  		z = os.path.dirname(x.replace("..\\","").replace(".\\",""))
-  		fobj.write("    <ClCompile Include=\"%s\">\n" % x);
+		z = os.path.dirname(x.replace("..\\","").replace(".\\",""))
+		fobj.write("    <ClCompile Include=\"%s\">\n" % x);
 		fobj.write("    <Filter>%s</Filter>\n" % z);
 		fobj.write("    </ClCompile>\n");
 	fobj.write("</ItemGroup>\n");
 
 	fobj.write("<ItemGroup>\n");
 	for x in headers:
-  		z = os.path.dirname(x.replace("..\\","").replace(".\\",""))
-  		fobj.write("    <ClInclude Include=\"%s\">\n" % x);
+		z = os.path.dirname(x.replace("..\\","").replace(".\\",""))
+		fobj.write("    <ClInclude Include=\"%s\">\n" % x);
 		fobj.write("    <Filter>%s</Filter>\n" % z);
 		fobj.write("    </ClInclude>\n");
 	fobj.write("</ItemGroup>\n");
@@ -392,9 +425,7 @@ def ensure_path(directory):
 		pass
 
 def visual_studio(project, files, name, **kwargs):
-
 	if serpent.projects.get(name, None) != None: raise Exception("Duplicate name")
-
 	deps = kwargs.get('deps', [])
 	toolversion = kwargs.get('toolversion', serpent.default_toolversion)
 	toolset = kwargs.get('toolset', serpent.default_toolset)
@@ -441,9 +472,7 @@ def visual_studio(project, files, name, **kwargs):
 	serpent.outdirs[name] = outdir;
 	serpent.target( name = name )
 
-	if serpent.action == "workspace" or serpent.action == "build" or serpent.action == "rebuild" or serpent.action == "clean":
-		
-
+	def generate():
 		_compileopts = " ".join(compileopts);
 		_linkopts = " ".join(linkopts);
 		if not os.path.exists(os.path.dirname(project)): os.mkdir(os.path.dirname(project))
@@ -452,25 +481,25 @@ def visual_studio(project, files, name, **kwargs):
 		fobj.write("""
 <Project DefaultTargets="Build" ToolsVersion="%s" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <PropertyGroup>
-  	<PlatformToolset>%s</PlatformToolset>
-    <ConfigurationType>%s</ConfigurationType>    
-    <Configuration>Release</Configuration>
-    <OutDir>%s</OutDir>
-    <IntDir>%s</IntDir>    
+	<PlatformToolset>%s</PlatformToolset>
+	<ConfigurationType>%s</ConfigurationType>    
+	<Configuration>Release</Configuration>
+	<OutDir>%s</OutDir>
+	<IntDir>%s</IntDir>    
   </PropertyGroup>
   <ItemDefinitionGroup>
-    <ClCompile>
-      <AdditionalOptions>%s %%(AdditionalOptions)</AdditionalOptions>
-      <PreprocessorDefinitions>%s</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>%s;%%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <RuntimeLibrary>%s</RuntimeLibrary>
-    </ClCompile>
-    <Link>
-      <AdditionalLibraryDirectories>%s;%%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalOptions>%s %%(AdditionalOptions)</AdditionalOptions>
-      <AdditionalDependencies>%s</AdditionalDependencies>
-      <SubSystem>Console</SubSystem>
-    </Link>    
+	<ClCompile>
+	  <AdditionalOptions>%s %%(AdditionalOptions)</AdditionalOptions>
+	  <PreprocessorDefinitions>%s</PreprocessorDefinitions>
+	  <AdditionalIncludeDirectories>%s;%%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+	  <RuntimeLibrary>%s</RuntimeLibrary>
+	</ClCompile>
+	<Link>
+	  <AdditionalLibraryDirectories>%s;%%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+	  <AdditionalOptions>%s %%(AdditionalOptions)</AdditionalOptions>
+	  <AdditionalDependencies>%s</AdditionalDependencies>
+	  <SubSystem>Console</SubSystem>
+	</Link>    
   </ItemDefinitionGroup>    
 
 		""" %  (toolversion, toolset, _shared, outdir + '/', intdir + '/', _compileopts, ";".join(defines), ";".join(includes), runtime, ";".join(libdirs), _linkopts, ";".join(libs)))
@@ -534,7 +563,9 @@ def visual_studio(project, files, name, **kwargs):
 			output_stream.close()			
 		del output_value
 
-		
+	if serpent.action == "workspace" or serpent.action == "build" or serpent.action == "rebuild" or serpent.action == "clean":
+		generate()
+				
 
 def qt_project(project, files, name, **kwargs):
 	if serpent.projects.get(name, None) != None: raise Exception("Duplicate name")
@@ -597,27 +628,27 @@ def qt_project(project, files, name, **kwargs):
 		fobj.write("""
 <Project DefaultTargets="Build" ToolsVersion="%s" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <PropertyGroup>
-    <ConfigurationType>Application</ConfigurationType>
-    <PlatformToolset>%s</PlatformToolset>
-    <Configuration>Release</Configuration>
-    <OutDir>%s</OutDir>
-    <IntDir>%s</IntDir>
+	<ConfigurationType>Application</ConfigurationType>
+	<PlatformToolset>%s</PlatformToolset>
+	<Configuration>Release</Configuration>
+	<OutDir>%s</OutDir>
+	<IntDir>%s</IntDir>
 	<QTDIR>E:\\Programming - VC Sdk\\Qt\\5.5\\msvc2012</QTDIR>  
 	<Moc>$(QTDIR)/bin/moc.exe</Moc>
 	<GenDir>moc_$(MSBuildProjectName)</GenDir>
   </PropertyGroup>
   <ItemDefinitionGroup>
-    <ClCompile>
-      <AdditionalOptions>%s %%(AdditionalOptions)</AdditionalOptions>
-      <PreprocessorDefinitions>%s</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>%s;$(GenDir);%%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-    </ClCompile>
-    <Link>
-      <AdditionalOptions>%s %%(AdditionalOptions)</AdditionalOptions>
-      <AdditionalDependencies>%s</AdditionalDependencies>
-    </Link>    
+	<ClCompile>
+	  <AdditionalOptions>%s %%(AdditionalOptions)</AdditionalOptions>
+	  <PreprocessorDefinitions>%s</PreprocessorDefinitions>
+	  <AdditionalIncludeDirectories>%s;$(GenDir);%%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+	</ClCompile>
+	<Link>
+	  <AdditionalOptions>%s %%(AdditionalOptions)</AdditionalOptions>
+	  <AdditionalDependencies>%s</AdditionalDependencies>
+	</Link>    
   </ItemDefinitionGroup>
-		""" %  (toolversion, toolset, outdir, intdir, _compileopts, ";".join(defines), ";".join(includes), _linkopts, ";".join(libs)))
+		""" %  ( str(toolversion), str(toolset), outdir, intdir, _compileopts, ";".join(defines), ";".join(includes), _linkopts, ";".join(libs)))
 
 		fobj.write("<ItemGroup>")
 		for x in configuration:
@@ -660,7 +691,7 @@ def qt_project(project, files, name, **kwargs):
 			output_stream.close()			
 		del output_value
 
-def visual_studio_debug_options(project, executable = "", arguments = "", workingdir = ""):
+def visual_studio_debug_options(project, executable = "", arguments = "", workingdir = "", environment = []):
 	project = os.path.abspath(project);
 	projdir = os.path.dirname(project)
 	if not os.path.exists(projdir): os.mkdir(projdir)		
@@ -676,17 +707,19 @@ def visual_studio_debug_options(project, executable = "", arguments = "", workin
 	else:
 		workingdir = os.path.abspath(workingdir);
 
+	environment1 = "PATH=" + ";".join( environment + ["$(PATH)"] )
 	fobj = open(userFile, 'w')
 	fobj.write("""<?xml version="1.0" encoding="utf-8"?>
 	<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
 	  <PropertyGroup>
-	    <LocalDebuggerCommand>%s</LocalDebuggerCommand>
-	    <LocalDebuggerCommandArguments>%s</LocalDebuggerCommandArguments>
-	    <LocalDebuggerWorkingDirectory>%s</LocalDebuggerWorkingDirectory>
-	    <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
+		<LocalDebuggerCommand>%s</LocalDebuggerCommand>
+		<LocalDebuggerCommandArguments>%s</LocalDebuggerCommandArguments>
+		<LocalDebuggerWorkingDirectory>%s</LocalDebuggerWorkingDirectory>
+		<LocalDebuggerEnvironment>%s</LocalDebuggerEnvironment>	    
+		<DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
 	  </PropertyGroup>
 	</Project>
-	""" % (executable, arguments, workingdir))
+	""" % (executable, arguments, workingdir, environment1))
 	fobj.close();
 
 def visual_studio_solution(solution, format = 12, version = 2012, projects = []):
@@ -712,7 +745,7 @@ def msbuild(project, projects = [], prepostbuild=False):
 		fobj = open(project, 'w')
 		fobj.write("""
 		<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
-		    <ItemGroup>\n
+			<ItemGroup>\n
 		""")
 		for x in reversed(projects):
 			x = serpent._internal.get(x, None);
@@ -724,24 +757,24 @@ def msbuild(project, projects = [], prepostbuild=False):
 					fobj.write("    </ProjectToBuild>\n")
 
 		fobj.write("""
-		    </ItemGroup>""")
+			</ItemGroup>""")
 
 		fobj.write("""
-		    <Target Name="Build">			    
-		        <MSBuild Projects="@(ProjectToBuild)" Properties="Configuration=Release" Targets="Build" />
-		    </Target>
+			<Target Name="Build">			    
+				<MSBuild Projects="@(ProjectToBuild)" Properties="Configuration=Release" Targets="Build" />
+			</Target>
 		""")
 
 		fobj.write("""		    
-		    <Target Name="Rebuild">
-		        <MSBuild Projects="@(ProjectToBuild)" Properties="Configuration=Release" Targets="Rebuild" />
-		    </Target>
+			<Target Name="Rebuild">
+				<MSBuild Projects="@(ProjectToBuild)" Properties="Configuration=Release" Targets="Rebuild" />
+			</Target>
 		""")
 
 		fobj.write("""
-		    <Target Name="Clean">
-		        <MSBuild Projects="@(ProjectToBuild)" Properties="Configuration=Release" Targets="Clean" />
-		    </Target>
+			<Target Name="Clean">
+				<MSBuild Projects="@(ProjectToBuild)" Properties="Configuration=Release" Targets="Clean" />
+			</Target>
 		""")
 
 		if prepostbuild == True:
@@ -754,8 +787,8 @@ def msbuild(project, projects = [], prepostbuild=False):
 					<message text="Postbuild target running" importance="high"></message>
 					<Exec Command="%s postbuild" WorkingDirectory="%s" />				
 				</Target>
-			    <Target Name="Empty">
-			    </Target>
+				<Target Name="Empty">
+				</Target>
 			""" % (serpent._SERPENT_COMMAND, serpent._WORKING_DIR, serpent._SERPENT_COMMAND, serpent._WORKING_DIR) )
 
 		fobj.write("""</Project>""")
@@ -889,7 +922,7 @@ def target_run():
 		print ""
 		print ""				
 
-serpent.map = _option
+
 serpent.build = build;
 serpent.target_run = target_run;
 del build
@@ -919,33 +952,6 @@ del execute_process
 
 
 
-
-serpent.option(
-   trigger     = "toolset",
-   value       = "v140",
-   description = "Visual Studio Toolset"
-)
-
-serpent.option(
-   trigger     = "workspace",
-   value       = "vs2015",
-   description = "Visual Studio"
-)
-
-visual_studio_version = serpent.map(
-	lambda x: dict(x)[serpent.triggers['workspace']],
-	data = [("vs2015", 2015), ("vs2017", 2017)]
-)
-
-visual_studio_internal = serpent.map(
-	lambda x: dict(x)[serpent.triggers['workspace']],
-	data = [("vs2015", 14),("vs2017", 15)]
-)
-
-visual_studio_toolset = serpent.map(
-	lambda x: dict(x)[serpent.triggers['workspace']],
-	data = [("vs2015", 'v140'),("vs2017", 'v141')]
-)
 
 def shortcut(link, target, description, working_dir, arguments=""):
 	if os.path.isfile(link):
