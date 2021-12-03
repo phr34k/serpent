@@ -82,6 +82,8 @@ This project currently is only available for windows, it uses python 2.7, so we 
 
 From that point on the build environment can be used to compile the sample projects using `env build /t:sample_cpp && env run /t:sample_cpp`.
 
+To help you get started to migrate your projects from traditional visual studio projects you can use the command-line `python msbuild/convert_project.py myproject.vcxproj` which will transform your project into serpents project definition. Likewise we also facilate the use of referencing externally managed projects as-is.
+
 ## Maintenance Scripts
 
 For a reference and sample output see [Maintenance Script Reference](MAINTENANCE.md)
