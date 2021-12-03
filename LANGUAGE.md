@@ -137,17 +137,6 @@ msbuild_ext.external(
 )
 ```
 
-## Generating debug options via MSBuild Extension
-
-```
-msbuild_ext.visual_studio_debug_options(
-	project = "Game/Snowbunt/Snowbunt.vcxproj",
-	executable = 'Bin/Release/GraphIDE/snowbunt.exe', 
-	arguments = 'graph.proj', 
-	workingdir = '.'
-)
-```
-
 # Reserved Constructs
 
 # Downloading files
