@@ -11,3 +11,7 @@ install:
 build_script:
   python --version
   nmake
+  
+artifacts:
+- path: bin/release/*
+  name: release  
