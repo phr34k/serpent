@@ -9,7 +9,7 @@ _premake = []
 _install = []
 _artifacts = []
 
-default = (,)
+default = ();
 
 def select(values):
   if True in values:
