@@ -1,6 +1,6 @@
 # Serpent
 
-a python based project/solution generation system and build system, and a collection of usefull maintenance scripts to help assist maintenaning / integrating codebases.
+A python based project/solution generation system and build system, and a collection of usefull maintenance scripts to help assist maintenaning / integrating codebases. This project was created out of the need of the desire to manage a larger codebase programatically in similair fasion but with a clear and conside language, inspired by Google's Bazel and there latent support for Windows serpent was created.
 
 ## Command-line reference
 
@@ -90,3 +90,6 @@ For a reference and sample output see [Maintenance Script Reference](MAINTENANCE
 - [msbuild/validate.py](msbuild/validate.py) scans a directory recursively for .vcxproj .csproj .vbproj files and performs sanatizing checks such as ensure project files don't reference $(SolutionDir) directly.
 - [msbuild/modify-project.py](msbuild/modify-project.py) uses pythonnet and msbuild api to programtically modify projects.
 - [msbuild/convert_project.py](msbuild/convert_project.py) uses pythonnet and msbuild api to convert the project.
+
+## Feedback
+
