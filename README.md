@@ -67,9 +67,11 @@ msbuild_ext.visual_studio_solution(
 serpent.include('samples/cpp/BUILDENV')
 ```
 
-## Build packages
+## Build packages & Additional Python Packages
 
-By default serpent creates a directory under the users home directory i.e. %USERPROFILE%/.srp/ following the same conventions of populair tools. The .srp directory is used to user configured properties as well as a repository where build definitions can be downloaded. In the future this mechanism will be used to resolve definitions from the internet as illustrated in the above example.
+By default serpent creates a directory under the users home directory i.e. `%USERPROFILE%/.srp/` following the same conventions of populair tools. The .srp directory is used to user configured properties as well as a repository where build definitions can be downloaded. In the future this mechanism will be used to resolve definitions from the internet as illustrated in the above example.
+
+By default python searches for additional python modules/packages in `%PYTHONHOME%`, however within serpent a different variable is used `%SERPENTHOME%`. You may define SERPENTHOME as PYTHONHOME, if you wish to use the same packages for both serpent and python.
 
 ## Internals
 
