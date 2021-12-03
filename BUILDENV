@@ -29,6 +29,7 @@ msbuild_ext.visual_studio(
 
 serpent.include('samples/cpp/BUILDENV')
 
+'''
 @serpent.prebuild
 def run():
 	print "Error: 1"
@@ -44,3 +45,4 @@ def run():
 	print "Error: 1"
 	print "Warning: 1"
 	print "Warning: 1"
+'''
