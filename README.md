@@ -71,3 +71,7 @@ serpent._SERPENT_VERSION		The version of the executable
 serpent._SERPENT_SCRIPT			The current script location
 serpent._WORKING_DIR			The current working directory
 ```
+
+## Getting started
+
+This project currently is only available for windows, it uses python 2.7, so we are going to assume you have it installed somewhere.  Adjust the location in the BUILDENV file to change the location. From that point on you should be able to call env rebuild /t:serpent_project.
