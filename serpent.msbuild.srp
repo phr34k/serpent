@@ -761,7 +761,7 @@ del build
 del target_run
 
 
-_create_targets('../dist/qt.targets', qt_targets)
+_create_targets(os.path.dirname(__file__),'../dist/qt.targets', qt_targets)
 
 
 def execute_process(
