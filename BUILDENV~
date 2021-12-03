@@ -19,9 +19,9 @@ msbuild_ext.visual_studio(
 	files = serpent.glob(['Serpent/*.cpp']),
 	resources = serpent.glob(['Serpent/*.rc']),
 	name = 'serpent_project',
-	defines = ['WINDOWS'],
+	defines = ['WINDOWS', 'HAVE_JUNCTIONS'],
 	outdir = 'Bin/Release/',
 	intdir = 'Intermediate/env/',
 	includes = [serpent.path.join(serpent.triggers['python-sdk'], 'include')],
-	libs = [serpent.path.join(serpent.triggers['python-sdk'], 'libs/python27.lib')]
+	libs = [serpent.path.join(serpent.triggers['python-sdk'], 'libs/python27.lib'), ':Rpcrt4.lib']
 )
