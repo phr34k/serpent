@@ -1,4 +1,4 @@
-import serpent, os, subprocess, ctypes
+import serpent, os, subprocess, ctypes, re
 
 serpent.projects = {}
 serpent.outdirs = {}
@@ -6,9 +6,16 @@ serpent.configuration = {}
 serpent._internal = {}
 
 class _external:
-	def __init__(self, project, name):
+	def __init__(self, project, name, guid):
 		self.name = name
 		self.project = project
+		self.guid = guid
+
+class macro:
+	def __init__(self, value):
+		self.value = value
+	def __str__(self):
+		return self.value
 
 def external(project, name, configuration = None ):
 	if not os.path.exists(project):
@@ -19,7 +26,18 @@ def external(project, name, configuration = None ):
 	if configuration is not None:
 		serpent.configuration[name] = configuration
 	serpent.target( name = name )
-	serpent._internal[name] = _external(project, name)
+
+	f = open(project, 'r')
+	content = f.read()
+	f.close()
+
+	guid = '380D6B49-C7EA-4F3A-8383-B50CAC3F054D';
+	match = re.search("\<ProjectGuid\>\{([A-Za-z0-9\-]+)\}\<\/ProjectGuid\>", content)
+	if match is not None:
+		guid = match.groups(1)[0]
+	serpent._internal[name] = _external(project, name, guid)
+	del content
+	del match
 
 
 def cmake(name, project, folder, input):
@@ -37,7 +55,7 @@ def visual_studio(project, files, name, deps = [], toolset='v110', defines = [],
 	intdir = os.path.relpath(intdir, os.path.dirname(project))
 	outdir = os.path.relpath(outdir, os.path.dirname(project))
 	projdir = os.path.dirname(project)
-	serpent._internal[name] = _external(project, name)
+	serpent._internal[name] = _external(project, name, '380D6B49-C7EA-4F3A-8383-B50CAC3F054D')
 	
 	if runtime not in ['StaticRuntime', 'DynamicRuntime']:
 		raise Exception("Runtime not expected")
@@ -61,7 +79,7 @@ def visual_studio(project, files, name, deps = [], toolset='v110', defines = [],
 		if not os.path.exists(os.path.dirname(project)): os.mkdir(os.path.dirname(project))
 		fobj = open(project, 'w')
 		fobj.write("""
-<Project DefaultTargets="Build" ToolsVersion="12.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+<Project DefaultTargets="Build" ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <PropertyGroup>
     <ConfigurationType>%s</ConfigurationType>
     <PlatformToolset>%s</PlatformToolset>
@@ -120,7 +138,7 @@ def qt_project(project, files, name, deps = [], toolset='v110', defines = [], in
 	serpent.projects[name] = os.path.abspath(project);
 	serpent.outdirs[name] = outdir;
 	serpent.target( name = name )
-	serpent._internal[name] = _external(project, name)
+	serpent._internal[name] = _external(project, name, '380D6B49-C7EA-4F3A-8383-B50CAC3F054D')
 
 	if serpent.action == "workspace" or serpent.action == "build" or serpent.action == "rebuild" or serpent.action == "clean":
 
@@ -130,7 +148,7 @@ def qt_project(project, files, name, deps = [], toolset='v110', defines = [], in
 		if not os.path.exists(os.path.dirname(project)): os.mkdir(os.path.dirname(project))
 		fobj = open(project, 'w')
 		fobj.write("""
-<Project DefaultTargets="Build" ToolsVersion="12.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+<Project DefaultTargets="Build" ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <PropertyGroup>
     <ConfigurationType>Application</ConfigurationType>
     <PlatformToolset>%s</PlatformToolset>
@@ -214,9 +232,16 @@ def visual_studio_debug_options(project, executable = "", arguments = "", workin
 	projdir = os.path.dirname(project)
 	if not os.path.exists(projdir): os.mkdir(projdir)		
 	userFile = os.path.abspath(project + '.user');
-	executable = os.path.abspath(executable);
-	arguments = os.path.abspath(arguments);
-	workingdir = os.path.abspath(workingdir);
+	
+	if isinstance(executable, macro):
+		executable = str(executable);
+	else:
+		executable = os.path.abspath(executable);
+
+	if isinstance(workingdir, macro):
+		workingdir = str(workingdir);
+	else:
+		workingdir = os.path.abspath(workingdir);
 
 	fobj = open(userFile, 'w')
 	fobj.write("""<?xml version="1.0" encoding="utf-8"?>
@@ -243,7 +268,12 @@ def visual_studio_solution(solution, format = 12, version = 2012, projects = [])
 	for project in projects:
 		obj = serpent._internal[project]
 		relative_path = os.path.relpath(obj.project, solutiondir)
-		fobj.write("""Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "%s", "%s", "{380D6B49-C7EA-4F3A-8383-B50CAC3F054D}"\n\r""" % (obj.name, relative_path));
+		guid = None
+		if obj.project.endswith(".csproj"):
+			guid = "{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}";
+		elif obj.project.endswith(".vcxproj"):
+			guid = "{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}";			
+		fobj.write("""Project("%s") = "%s", "%s", "{%s}"\n\r""" % (guid, obj.name, relative_path, obj.guid));
 		fobj.write("""EndProject\n\r""");
 	fobj.close();
 
