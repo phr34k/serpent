@@ -97,15 +97,7 @@ To help you get started to migrate your projects from traditional visual studio 
 
 ## Maintenance Scripts
 
-For a reference and sample output see [Maintenance Script Reference](MAINTENANCE.md)
-
-- [msbuild/compact.py](msbuild/compact.py) scans a directory recursively for .ncb .sdf and .opensdf files and removes them.
-- [msbuild/validate.py](msbuild/validate.py) scans a directory recursively for .vcxproj .csproj .vbproj files and performs sanatizing checks such as ensure project files don't reference $(SolutionDir) directly.
-- [msbuild/modify-project.py](msbuild/modify-project.py) uses pythonnet and msbuild api to programtically modify projects.
-- [msbuild/convert_project.py](msbuild/convert_project.py) uses pythonnet and msbuild api to convert the project.
-- [msbuild/change_project.py](msbuild/change_project.py) uses pythonnet and msbuild api to make modifications to the project.
-- [msbuild/format_project.py](msbuild/format_project.py) uses pythonnet and msbuild api to reformat the project.
-- [msbuild/refs_project.py](msbuild/refs_project.py) uses pythonnet to recurse into a project and list all project references.
+A collection of maintenance scripts can be installed with a python package, you can perform `pip install -I pip install git+git://github.com/phr34k/serpent.git#subdirectory=packages` [Maintenance Script Reference](MAINTENANCE.md)
 
 ## Feedback
 
