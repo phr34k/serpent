@@ -3,6 +3,12 @@ import serpent, os, subprocess, ctypes
 serpent.projects = {}
 serpent.outdirs = {}
 serpent.configuration = {}
+serpent._internal = {}
+
+class _external:
+	def __init__(self, project, name):
+		self.name = name
+		self.project = project
 
 def external(project, name, configuration = None ):
 	if not os.path.exists(project):
@@ -13,6 +19,8 @@ def external(project, name, configuration = None ):
 	if configuration is not None:
 		serpent.configuration[name] = configuration
 	serpent.target( name = name )
+	serpent._internal[name] = _external(project, name)
+
 
 def cmake(name, project, folder, input):
 	relative_input = os.path.relpath(input, folder)
@@ -29,6 +37,7 @@ def visual_studio(project, files, name, deps = [], toolset='v110', defines = [],
 	intdir = os.path.relpath(intdir, os.path.dirname(project))
 	outdir = os.path.relpath(outdir, os.path.dirname(project))
 	projdir = os.path.dirname(project)
+	serpent._internal[name] = _external(project, name)
 	
 	if runtime not in ['StaticRuntime', 'DynamicRuntime']:
 		raise Exception("Runtime not expected")
@@ -111,6 +120,7 @@ def qt_project(project, files, name, deps = [], toolset='v110', defines = [], in
 	serpent.projects[name] = os.path.abspath(project);
 	serpent.outdirs[name] = outdir;
 	serpent.target( name = name )
+	serpent._internal[name] = _external(project, name)
 
 	if serpent.action == "workspace" or serpent.action == "build" or serpent.action == "rebuild" or serpent.action == "clean":
 
@@ -202,9 +212,11 @@ def qt_project(project, files, name, deps = [], toolset='v110', defines = [], in
 
 def visual_studio_debug_options(project, executable = "", arguments = "", workingdir = ""):
 	projdir = os.path.dirname(project)
-	print projdir
 	if not os.path.exists(projdir): os.mkdir(projdir)		
 	userFile = os.path.abspath(project + '.user');
+	executable = os.path.abspath(executable);
+	arguments = os.path.abspath(arguments);
+	workingdir = os.path.abspath(workingdir);
 
 	fobj = open(userFile, 'w')
 	fobj.write("""<?xml version="1.0" encoding="utf-8"?>
@@ -217,6 +229,22 @@ def visual_studio_debug_options(project, executable = "", arguments = "", workin
 	  </PropertyGroup>
 	</Project>
 	""" % (executable, arguments, workingdir))
+	fobj.close();
+
+def visual_studio_solution(solution, format = 12, version = 2012, projects = []):
+	solution = os.path.abspath(solution);
+	solutiondir = os.path.dirname(solution)
+	if not os.path.exists(solutiondir): os.mkdir(solutiondir)		
+
+	fobj = open(solution, 'w')
+	fobj.write("""Microsoft Visual Studio Solution File, Format Version %s.00\n\r""" % format);
+	fobj.write("""# Visual Studio %s\n\r""" % version);
+
+	for project in projects:
+		obj = serpent._internal[project]
+		relative_path = os.path.relpath(obj.project, solutiondir)
+		fobj.write("""Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "%s", "%s", "{380D6B49-C7EA-4F3A-8383-B50CAC3F054D}"\n\r""" % (obj.name, relative_path));
+		fobj.write("""EndProject\n\r""");
 	fobj.close();
 
 
