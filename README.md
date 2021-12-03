@@ -57,15 +57,29 @@ def run():
 	print "Error: 1"
 	print "Warning: 1"
 	print "Warning: 1"
+
+
+# Language built-in for dictionaries
+d = {"a": 2, "b": 5}
+e = d["a"]
+
+# Language built-in for lists
+x = [1, 2, 3]
+x = [1, 2] + [3, 4]
+
+# Language built-in for sets
+s = set([1, 2])
+s = s | set([4, 5])
+
 ```
 
 ## Internals
 
 ```
 serpent.action					Maps to the first argument of serpent i.e. build, help, deploy
-serpent.triggers				Not implemented yet
-serpent.targets					Maps to options passed with /t:
-serpent.platforms				Maps to options passed with /p:
+serpent.triggers				Maps to options passed with --name=value
+serpent.targets					Maps to options passed with /t:name
+serpent.platforms				Maps to options passed with /p:name
 serpent._SERPENT_COMMAND		The serpent executable used to interpret the script
 serpent._SERPENT_VERSION		The version of the executable
 serpent._SERPENT_SCRIPT			The current script location

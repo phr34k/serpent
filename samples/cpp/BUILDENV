@@ -1,3 +1,4 @@
+
 msbuild_ext = serpent.load('BUILDENV.MSBUILD.SRP');
 
 msbuild_ext.visual_studio(

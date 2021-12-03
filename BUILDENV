@@ -13,7 +13,7 @@ msbuild_ext.visual_studio(
 	files = serpent.glob(['Serpent/*.cpp']),
 	resources = serpent.glob(['Serpent/*.rc']),
 	name = 'serpent_project',
-	defines = ['AAAA'],
+	defines = ['WINDOWS'],
 	outdir = 'Bin/Release/',
 	intdir = 'Intermediate/env/',
 	includes = [os.path.join(serpent.triggers['python-sdk'], 'include')],
