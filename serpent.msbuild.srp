@@ -28,6 +28,7 @@ def visual_studio(project, files, name, deps = [], toolset='v110', defines = [],
 
 	intdir = os.path.relpath(intdir, os.path.dirname(project))
 	outdir = os.path.relpath(outdir, os.path.dirname(project))
+	projdir = os.path.dirname(project)
 	
 	if runtime not in ['StaticRuntime', 'DynamicRuntime']:
 		raise Exception("Runtime not expected")
@@ -85,12 +86,12 @@ def visual_studio(project, files, name, deps = [], toolset='v110', defines = [],
 
 		fobj.write("<ItemGroup>\n");
 		for x in files:			
-			fobj.write("    <ClCompile Include=\"%s\" />" % os.path.relpath(x, os.path.basename(project)));
-		fobj.write("</ItemGroup>\n");				
+			fobj.write("    <ClCompile Include=\"%s\" />" % os.path.relpath(x, projdir));
+		fobj.write("</ItemGroup>\n");						
 
 		fobj.write("<ItemGroup>\n");
 		for x in resources:			
-			fobj.write("    <ResourceCompile Include=\"%s\" />\n" % os.path.relpath(x, os.path.basename(project)));
+			fobj.write("    <ResourceCompile Include=\"%s\" />\n" % os.path.relpath(x, projdir));
 		fobj.write("</ItemGroup>\n");	
 
 		fobj.write("""
@@ -105,6 +106,7 @@ def qt_project(project, files, name, deps = [], toolset='v110', defines = [], in
 
 	intdir = os.path.relpath(intdir, os.path.dirname(project))
 	outdir = os.path.relpath(outdir, os.path.dirname(project))
+	projdir = os.path.dirname(project)
 
 	serpent.projects[name] = os.path.abspath(project);
 	serpent.outdirs[name] = outdir;
@@ -152,27 +154,27 @@ def qt_project(project, files, name, deps = [], toolset='v110', defines = [], in
 
 		fobj.write("<ItemGroup>\n");
 		for x in files:			
-			fobj.write("    <ClCompile Include=\"%s\" />\n" % os.path.relpath(x, os.path.basename(project)));
+			fobj.write("    <ClCompile Include=\"%s\" />\n" % os.path.relpath(x, projdir));
 		fobj.write("</ItemGroup>\n");
 
 		fobj.write("<ItemGroup>\n");
 		for x in uifiles:			
-			fobj.write("    <UIFiles Include=\"%s\" />\n" % os.path.relpath(x, os.path.basename(project)));
+			fobj.write("    <UIFiles Include=\"%s\" />\n" % os.path.relpath(x, projdir));
 		fobj.write("</ItemGroup>\n");
 
 		fobj.write("<ItemGroup>\n");
 		for x in uiheaders:			
-			fobj.write("    <QtIncludes Include=\"%s\" />\n" % os.path.relpath(x, os.path.basename(project)));
+			fobj.write("    <QtIncludes Include=\"%s\" />\n" % os.path.relpath(x, projdir));
 		fobj.write("</ItemGroup>\n");
 
 		fobj.write("<ItemGroup>\n");
 		for x in uiresource:			
-			fobj.write("    <ResFiles Include=\"%s\" />\n" % os.path.relpath(x, os.path.basename(project)));
+			fobj.write("    <ResFiles Include=\"%s\" />\n" % os.path.relpath(x, projdir));
 		fobj.write("</ItemGroup>\n");
 
 		fobj.write("<ItemGroup>\n");
 		for x in resources:			
-			fobj.write("    <ResourceCompile Include=\"%s\" />\n" % os.path.relpath(x, os.path.basename(project)));
+			fobj.write("    <ResourceCompile Include=\"%s\" />\n" % os.path.relpath(x, projdir));
 		fobj.write("</ItemGroup>\n");		
  
  		fobj.write("""

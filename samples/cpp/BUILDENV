@@ -1,10 +1,10 @@
 
-msbuild_ext = serpent.load('../../BUILDENV.MSBUILD.SRP');
+msbuild_ext = serpent.load('../../serpent.msbuild.srp');
 
 msbuild_ext.visual_studio(
-	project = "msvc/sample_cpp.project",
+	project = "../../msvc/sample_cpp.project",
 	files = serpent.glob(['*.cpp']),
 	name = 'sample_cpp',
-	outdir = 'Bin/Release/',
-	intdir = 'Intermediate/sample_cpp/'
+	outdir = '../../bin/Release/',
+	intdir = '../../intermediate/sample_cpp/'
 )

@@ -6,7 +6,8 @@ serpent.option(
    description = "Python sdk location"
 )
 
-msbuild_ext = serpent.load('BUILDENV.MSBUILD.SRP');
+msbuild_ext = serpent.load('serpent.msbuild.srp');
+
 
 msbuild_ext.visual_studio(
 	project = "msvc/env.project",
@@ -19,16 +20,6 @@ msbuild_ext.visual_studio(
 	includes = [os.path.join(serpent.triggers['python-sdk'], 'include')],
 	libs = [os.path.join(serpent.triggers['python-sdk'], 'libs/python27.lib')]
 )
-
-'''
-msbuild_ext.visual_studio(
-	project = "msvc/sample_cpp.project",
-	files = serpent.glob(['samples/cpp/*.cpp']),
-	name = 'sample_cpp',
-	outdir = 'Bin/Release/',
-	intdir = 'Intermediate/sample_cpp/'
-)
-'''
 
 serpent.include('samples/cpp/BUILDENV')
 
