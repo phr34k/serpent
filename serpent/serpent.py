@@ -8,6 +8,7 @@ _targets = targets;
 _premake = []
 _install = []
 _artifacts = []
+_publish = []
 
 default = ();
 
@@ -76,6 +77,7 @@ def download(url, hash = None):
 
 def artifact(id, version, files = []):
   def _artifact_install(id, version):
+    repository_search(id, version)
     tar = tarfile.open(".srp/%s.%s.tar.bz2" % (id, version), "r:bz2")
     for file in tar:
       data = tar.extractfile(file.name).read()
@@ -96,16 +98,16 @@ def artifact(id, version, files = []):
   _install.append(_inst);
 
 def build():
-  if action == "install":
-     target_install()
-  if action == "package":
-     target_package()
-  if action == "run":
-     target_run()
-  if action == "prebuild":
-     for x in _prebuild: x()
-  if action == "postbuild":
-     for x in _postbuild: x()     
+  g = globals()
+  functionName = "target_" + action
+  if functionName in g:
+     g[functionName]()
+  else:
+     print "function does not exists"
+
+def target_package():
+  for x in _publish:
+    x()
      
 def target_package():
   for x in _artifacts:
@@ -114,6 +116,12 @@ def target_package():
 def target_install():
   for x in _install:
     x()
+
+def target_prebuild():
+  for x in _prebuild: x()
+
+def target_postbuild():  
+  for x in _postbuild: x()
 
 def target_run():  
   print "run"
