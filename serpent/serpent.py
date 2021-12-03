@@ -9,6 +9,13 @@ _premake = []
 _install = []
 _artifacts = []
 
+def join(*args, **kwargs):  
+  workingdir= kwargs.get('workingdir', '.')
+  l = []
+  for x in range(len(args)):
+    l.append(os.path.join(workingdir, args[x]))
+  return l
+
 def enum(**enums):
     return type('Enum', (), enums)
 
@@ -86,4 +93,4 @@ def target_install():
     x()
 
 def target_run():  
-  print "run"
+  pass
