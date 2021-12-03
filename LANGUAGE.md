@@ -136,7 +136,7 @@ serpent.download(
 )
 ```
 
-# Packaging artifacts ala Maven style
+# Packaging artifacts
 
 ```
 serpent.artifact(
