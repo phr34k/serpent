@@ -1,4 +1,4 @@
-import os
+import os, tarfile
 path=os.path
 del os
 
@@ -75,17 +75,31 @@ def download(url, hash = None):
     _install.append(_call);  
 
 def artifact(id, version, files = []):
-  def _artifact(id, version, files = []):
-    print "publishing artifacts"
-  def _call():
-    _artifact(id=id, version=version, files=files)    
-  _artifacts.append(_call);
+  def _artifact_install(id, version):
+    tar = tarfile.open(".srp/%s.%s.tar.bz2" % (id, version), "r:bz2")
+    for file in tar:
+      data = tar.extractfile(file.name).read()
+      fout = open(file.name, "w")
+      fout.write(data)
+      fout.close()
+    tar.close()
+  def _artifact_create(id, version, files = []):
+    tar = tarfile.open(".srp/%s.%s.tar.bz2" % (id, version), "w:bz2")
+    for name in files: tar.add(name)
+    tar.close()
+  def _create():
+    _artifact_create(id=id, version=version, files=files)
+  def _inst():
+    _artifact_install(id=id, version=version)
+
+  _artifacts.append(_create);
+  _install.append(_inst);
 
 def build():
   if action == "install":
-     target_package()
-  if action == "package":
      target_install()
+  if action == "package":
+     target_package()
   if action == "run":
      target_run()
   if action == "prebuild":
