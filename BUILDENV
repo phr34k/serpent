@@ -8,7 +8,7 @@ serpent.option(
 
 serpent.option(
    trigger     = "toolset",
-   value       = "v150",
+   value       = "v140",
    description = "Visual Studio Toolset"
 )
 
