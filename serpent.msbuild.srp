@@ -1,4 +1,10 @@
 import serpent, os, subprocess, ctypes, re, sys, StringIO
+from inspect import getframeinfo, stack
+print("file: " + __file__ )
+
+def debuginfo(message):
+    caller = getframeinfo(stack()[2][0])
+    print "%s:%d - %s" % (caller.filename, caller.lineno, message)
 
 serpent.default_toolversion = '4.0'
 serpent.default_toolset = 'v110'
@@ -162,6 +168,7 @@ class macro:
 		return self.value
 
 def external(project, name, configuration = serpent._configurations, depends = [], options = [] ):
+	debuginfo(project)
 	if not os.path.exists(project):
 		raise Exception("Path %s does not exists" % project )
 	if serpent.projects.get(name, None) != None:
@@ -298,6 +305,12 @@ def visual_studio_generator(stage):
 		return ['$(VCTargetsPath)\Microsoft.Cpp.Targets']
 
 
+def ensure_path(directory):
+	try:
+		os.makedirs(directory)
+	except OSError as e:
+		pass
+
 def visual_studio(project, files, name, **kwargs):
 
 	if serpent.projects.get(name, None) != None: raise Exception("Duplicate name")
@@ -337,6 +350,7 @@ def visual_studio(project, files, name, **kwargs):
 	for x in range(len(defines)):
 		defines[x] = _msvc_entity_safe(defines[x])
 	
+	ensure_path(os.path.dirname(project))
 	serpent._internal[name] = _external(project, name, '380D6B49-C7EA-4F3A-8383-B50CAC3F054D', depends=depends, configurations = configuration )	
 	visual_studio_filters(project, toolversion=toolversion, files=files, headers=headers)
 
@@ -535,7 +549,7 @@ def qt_project(project, files, name, **kwargs):
 		for x in visual_studio_generator(1): fobj.write("<Import Project=\"%s\" />" % x );
 		fobj.write("<Import Project=\"common.props\" />");
 
-		resources_ = [('ClCompile', files), ('UIFiles', uifiles), ('QtIncludes', uiheaders), ('ResFiles', uiresource), ('ResourceCompile', resources)]
+		resources_ = [('ClCompile', files), ('UIFiles',	uifiles), ('QtIncludes', uiheaders), ('ResFiles', uiresource), ('ResourceCompile', resources)]
 		for resource_ in resources_:
 			fobj.write("<ItemGroup>\n");
 			for x in resource_[1]:			
@@ -746,7 +760,8 @@ serpent.target_run = target_run;
 del build
 del target_run
 
-_create_targets(serpent._WORKING_ROOT, 'msvc/qt.targets', qt_targets)
+
+_create_targets('../dist/qt.targets', qt_targets)
 
 
 def execute_process(
