@@ -20,6 +20,7 @@ msbuild_ext.visual_studio(
 	libs = [os.path.join(serpent.triggers['python-sdk'], 'libs/python27.lib')]
 )
 
+'''
 msbuild_ext.visual_studio(
 	project = "msvc/sample_cpp.project",
 	files = serpent.glob(['samples/cpp/*.cpp']),
@@ -27,6 +28,9 @@ msbuild_ext.visual_studio(
 	outdir = 'Bin/Release/',
 	intdir = 'Intermediate/sample_cpp/'
 )
+'''
+
+serpent.include('samples/cpp/BUILDENV')
 
 @serpent.prebuild
 def run():
