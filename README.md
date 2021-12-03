@@ -29,7 +29,7 @@ msbuild_ext = serpent.load('BUILDENV.MSBUILD.SRP');
 
 # Generates a Visual C++ project
 msbuild_ext.visual_studio(
-	project = "msvc/env.project",
+	project = "msvc/env.vcxproj",
 	files = serpent.glob(['Serpent/*.cpp']),
 	resources = serpent.glob(['Serpent/*.rc']),
 	name = 'serpent_project',
@@ -38,6 +38,22 @@ msbuild_ext.visual_studio(
 	intdir = 'Intermediate/env/',
 	includes = [os.path.join(serpent.triggers['python-sdk'], 'include')],
 	libs = [os.path.join(serpent.triggers['python-sdk'], 'libs/python27.lib')]
+)
+
+# Generates the .user file which contain the debug options.
+msbuild_ext.visual_studio_debug_options(
+	project = "msvc/env.vcxproj",
+	executable = 'Bin/Release/env.exe', 
+	arguments = 'graph.proj', 
+	workingdir = '.'
+)
+
+# Generates a solution file with a specific target and add earlier defined Visual C++ Projects to them.
+msbuild_ext.visual_studio_solution(
+	solution = "Workspace.sln",
+	format = 12,
+	version = 2012,
+	projects = ['serpent_project']
 )
 
 # Loads the partial build script from a subfolder, the triggers and optiones declared will be listed.
