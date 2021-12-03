@@ -1,5 +1,5 @@
 # Serpent
-a python based project generation system and build system.
+a python based project generation system and build system, and a collection of usefull maintenance scripts
 
 ## Command-line reference
 
