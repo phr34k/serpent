@@ -11,7 +11,7 @@ serpent._configurations = ['Release']
 class _external:
 	def __init__(self, project, name, guid, configurations = None, depends = None, options = []):
 		self.name = name
-		self.project = project
+		self.project = os.path.abspath(project)
 		self.configurations = configurations
 		self.guid = guid
 		self.depends = depends
@@ -20,7 +20,7 @@ class _external:
 class _project:
 	def __init__(self, project, name, guid, configurations = None, depends = None, options = []):
 		self.name = name
-		self.project = project
+		self.project = os.path.abspath(project)
 		self.configurations = configurations
 		self.guid = guid
 		self.depends = depends
@@ -319,7 +319,7 @@ def msbuild(project, projects = []):
 		for x in reversed(projects):
 			x = serpent._internal.get(x, None);
 			if x is not None:
-				for y in x.configurations or serpent._configurations:			
+				for y in x.configurations or serpent._configurations:
 					fobj.write("    <ProjectToBuild Include=\"%s\">\n" % os.path.relpath(x.project, os.path.basename(project)));
 					options = ';'.join(x.options)
 					fobj.write("    <AdditionalProperties>Configuration=%s;%s</AdditionalProperties>\n" % (y, options))  
