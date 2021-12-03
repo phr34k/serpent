@@ -783,6 +783,30 @@ def union_targets():
 		for y in serpent._targets:
 			if y in serpent._internal: y=serpent._internal[y]; serpent._targets = list(set(serpent._targets) | set(y.depends or []))
 
+def define_gitignore():
+	fullpath = os.path.join(serpent._WORKING_DIR, ".git/info/exclude")
+	if os.path.isfile(fullpath):
+		f = open(fullpath, "r")
+		contents = f.read()
+		f.close()
+		if serpent._SERPENT_WORKSPACE not in contents:
+			contents = contents + "\n" + serpent._SERPENT_WORKSPACE
+			f = open(fullpath, "w")
+			f.write(contents)
+			f.close()
+
+def define_hgignore():
+	fullpath = os.path.join(serpent._WORKING_DIR, ".hg/hgignore")
+	if os.path.isfile(fullpath):
+		f = open(fullpath, "r")
+		contents = f.read()
+		f.close()
+		if serpent._SERPENT_WORKSPACE not in contents:
+			contents = contents + "\n" + serpent._SERPENT_WORKSPACE
+			f = open(fullpath, "w")
+			f.write(contents)
+			f.close()
+
 def build():
 	msbuild_exe = find_executable("msbuild", "C:\\Program Files (x86)\\MSBuild\\14.0\\Bin")
 
@@ -806,10 +830,12 @@ def build():
 
 	if _build is not None: _build()
 
-
-	# Generate Visual Studio Solutions
-	if solutiongenerate() == False:
-		return
+	# Generate the visual studio solution files
+	if serpent.action == "workspace":
+		define_gitignore()
+		define_hgignore()
+		if solutiongenerate() == False:
+			return
 
 	if serpent.action == "cmake":
 		for y in serpent._targets:
