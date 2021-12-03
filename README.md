@@ -15,7 +15,9 @@ env clean /t:serpent_project /f:BUILDENV
 env configure /t:serpent_project && env rebuild @BUILD_RESP
 ```
 
-## Language reference
+## A Quick look at the language 
+
+For a complete language reference see [Language Reference](LANGUAGE.md)
 
 ```
 # Declares an option that can be set on the command line
@@ -59,38 +61,6 @@ msbuild_ext.visual_studio_solution(
 
 # Loads the partial build script from a subfolder, the triggers and optiones declared will be listed.
 serpent.include('samples/cpp/BUILDENV')
-
-# Flags a function as a prebuild step which gets evaluated before compilation of targets
-@serpent.prebuild
-def run():
-	print "Error: 1"
-	print "Error: 1"
-	print "Error: 1"
-	print "Warning: 1"
-	print "Warning: 1"
-
-# Flags a function as a postbuild step which gets evaluated after compilation of targets
-@serpent.postbuild
-def run():
-	print "Error: 1"
-	print "Error: 1"
-	print "Error: 1"
-	print "Warning: 1"
-	print "Warning: 1"
-
-
-# Language built-in for dictionaries
-d = {"a": 2, "b": 5}
-e = d["a"]
-
-# Language built-in for lists
-x = [1, 2, 3]
-x = [1, 2] + [3, 4]
-
-# Language built-in for sets
-s = set([1, 2])
-s = s | set([4, 5])
-
 ```
 
 ## Internals
