@@ -18,6 +18,9 @@ x = [1, 2] + [3, 4]
 # Language built-in for sets
 s = set([1, 2])
 s = s | set([4, 5])
+
+# Framework built-in for path prefix
+serpent.join('main.cpp','hello.cpp', 'world.cpp', workingdir='sample')
 ```
 
 ## Options
