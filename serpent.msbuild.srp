@@ -7,8 +7,8 @@ serpent.outdirs = {}
 serpent.configuration = {}
 serpent._internal = {}
 serpent._configurations = ['Release']
-serpent._solutions = []
 
+solutions = []
 Application=1
 DynamicLibrary=2
 StaticLibrary=3
@@ -109,8 +109,6 @@ def _create_targets(project, string):
 	fobj.close();
 	del fobj
 	
-	projectdir = os.path.dirname(project)
-	if not os.path.exists(projectdir): os.mkdir(projectdir)	
 	if os.path.isfile(project):
 		output_stream = open(project, 'r')
 		value = output_stream.read()
@@ -151,7 +149,8 @@ def _msvc_to_applicationtype(shared):
 	return _shared		
 
 def _msvc_entity_safe(str):
-	return str.replace("<", "&lt;").replace(">", "&gt;")	
+	return str.replace("<", "&lt;").replace(">", "&gt;")
+
 
 class macro:
 	def __init__(self, value):
@@ -219,9 +218,6 @@ def visual_studio_filters_expand(files, strip=visual_studio_dirname, directory =
 
 def visual_studio_filters(project, toolversion=serpent.default_toolversion, files = [], headers = []):
 
-	print "............................."
-	print project
-	print "............................."
 	project = os.path.abspath(project)
 	project = project + ".filters"
 	fobj = StringIO.StringIO()	
@@ -306,10 +302,10 @@ def visual_studio(project, files, name, **kwargs):
 	deps = kwargs.get('deps', [])
 	toolversion = kwargs.get('toolversion', serpent.default_toolversion)
 	toolset = kwargs.get('toolset', serpent.default_toolset)
-	defines = kwargs.get('defines', [])
-	includes = kwargs.get('includes', [])
-	libs = kwargs.get('libs', [])
-	libdirs = kwargs.get('libdirs', [])
+	defines = filter(lambda x: x is not None, kwargs.get('defines', []))
+	includes = filter(lambda x: x is not None, kwargs.get('includes', []))
+	libs = filter(lambda x: x is not None, kwargs.get('libs', []))
+	libdirs = filter(lambda x: x is not None, kwargs.get('libdirs', []))
 	compileopts = kwargs.get('compileopts', [])
 	linkopts = kwargs.get('linkopts', [])
 	intdir = kwargs.get('intdir', [])
@@ -339,7 +335,8 @@ def visual_studio(project, files, name, **kwargs):
 		defines[x] = _msvc_entity_safe(defines[x])
 	
 	serpent._internal[name] = _external(project, name, '380D6B49-C7EA-4F3A-8383-B50CAC3F054D', depends=depends, configurations = configuration )	
-	
+	visual_studio_filters(project, toolversion=toolversion, files=files, headers=headers)
+
 	runtime = _msvc_to_runtime(runtime)
 	_shared = _msvc_to_applicationtype(shared)
 
@@ -353,7 +350,6 @@ def visual_studio(project, files, name, **kwargs):
 		_compileopts = " ".join(compileopts);
 		_linkopts = " ".join(linkopts);
 		if not os.path.exists(os.path.dirname(project)): os.mkdir(os.path.dirname(project))
-		visual_studio_filters(project, toolversion=toolversion, files=files, headers=headers)
 
 		fobj = StringIO.StringIO()	
 		fobj.write("""
@@ -598,7 +594,7 @@ def visual_studio_debug_options(project, executable = "", arguments = "", workin
 def visual_studio_solution(solution, format = 12, version = 2012, projects = []):
 	solution = os.path.abspath(solution);
 	v = _solution(solution=solution, format=format, version=version, projects=projects)
-	serpent.solutions.append(v)
+	solutions.append(v)
 
 
 def msbuild(project, projects = []):
@@ -678,6 +674,8 @@ def test(project):
 	fobj.write("</Project>")	
 	fobj.close()
 
+_build = serpent.build		
+
 def union_targets():
 	p = set(serpent._targets)
 	if "*" in serpent._targets:			
@@ -687,57 +685,44 @@ def union_targets():
 		for y in serpent._targets:
 			if y in serpent._internal: y=serpent._internal[y]; serpent._targets = list(set(serpent._targets) | set(y.depends or []))
 
-def target_build():
-	for x in serpent._solutions: x.generate()
-	union_targets()
-	for x in serpent._premake: x()
-	test("msvc/common.props")
+def build():
+	if _build is not None: _build()
+	for x in solutions: x.generate()
 
-	if serpent._SERPENT_LOG == True:
+	if serpent.action == "cmake":
+		for y in serpent._targets:
+			if y in serpent._internal: y=serpent._internal[y]
+			serpent._targets = list(set(serpent._targets) | set(y.depends))		
+		for x in serpent._premake: x()
+	if serpent.action == "build":		
+		union_targets()
+		for x in serpent._premake: x()
+		test("msvc/common.props")
 		msbuild(project = "msvc/common.msproj", projects = serpent._targets)
 		exit_code = subprocess.call(['msbuild', 'msvc/common.msproj', '/t:Build', '/p:Platform=Win32', '/p:ADK_PATH=E:\\Workspaces\\Import', '/verbosity:m',
 		'/flp:Summary;Verbosity=minimal;LogFile=.srp/BUILD_SUMMARY', '/flp1:warningsonly;logfile=.srp/BUILD_WARNINGS', '/flp2:errorsonly;logfile=.srp/BUILD_ERRORS', '/maxcpucount:4'])
 		sys.exit(exit_code);
-	else:
+	if serpent.action == "rebuild":
+		union_targets()
+		for y in serpent._targets:
+			if y in serpent._internal: y=serpent._internal[y]; serpent._targets = list(set(serpent._targets) | set(y.depends or []))
+		for x in serpent._premake: x()
+		test("msvc/common.props")
 		msbuild(project = "msvc/common.msproj", projects = serpent._targets)
-		exit_code = subprocess.call(['msbuild', 'msvc/common.msproj', '/t:Build', '/p:Platform=Win32', '/p:ADK_PATH=E:\\Workspaces\\Import', '/verbosity:m',
-		'/flp:Summary;Verbosity=minimal', '/maxcpucount:4'])
-		sys.exit(exit_code);
-
-def target_rebuild():
-	for x in serpent._solutions: x.generate()
-	union_targets()
-	for y in serpent._targets:
-		if y in serpent._internal: y=serpent._internal[y]; serpent._targets = list(set(serpent._targets) | set(y.depends or []))
-	for x in serpent._premake: x()
-	test("msvc/common.props")
-	msbuild(project = "msvc/common.msproj", projects = serpent._targets)
-
-	if serpent._SERPENT_LOG == True:
 		exit_code = subprocess.call(['msbuild', 'msvc/common.msproj', '/t:Rebuild', '/p:Platform=Win32', '/p:ADK_PATH=E:\\Workspaces\\Import', '/verbosity:m',
 		'/flp:Summary;Verbosity=minimal;LogFile=.srp/BUILD_SUMMARY', '/flp1:warningsonly;logfile=.srp/BUILD_WARNINGS', '/flp2:errorsonly;logfile=.srp/BUILD_ERRORS', '/maxcpucount:4'])
 		sys.exit(exit_code);
-	else:
-		exit_code = subprocess.call(['msbuild', 'msvc/common.msproj', '/t:Rebuild', '/p:Platform=Win32', '/p:ADK_PATH=E:\\Workspaces\\Import', '/verbosity:m',
-		'/flp:Summary;Verbosity=minimal;', '/maxcpucount:4'])
-		sys.exit(exit_code);		
-
-def target_clean():
-	for x in serpent._solutions: x.generate()
-	union_targets()
-	for y in serpent._targets:
-		if y in serpent._internal: y=serpent._internal[y]; serpent._targets = list(set(serpent._targets) | set(y.depends or []))
-	for x in serpent._premake: x()
-	test("msvc/common.props")
-
-	if serpent._SERPENT_LOG == True:
+	if serpent.action == "clean":
+		union_targets()
+		for y in serpent._targets:
+			if y in serpent._internal: y=serpent._internal[y]; serpent._targets = list(set(serpent._targets) | set(y.depends or []))
+		for x in serpent._premake: x()
+		test("msvc/common.props")
 		msbuild(project = "msvc/common.msproj", projects = serpent._targets)
 		exit_code = subprocess.call(['msbuild', 'msvc/common.msproj', '/t:Clean', '/p:Platform=Win32', '/p:ADK_PATH=E:\\Workspaces\\Import', '/verbosity:m', '/flp:Summary;Verbosity=minimal;LogFile=.srp/BUILD_SUMMARY', '/flp1:warningsonly;logfile=.srp/BUILD_WARNINGS', '/flp2:errorsonly;logfile=.srp/BUILD_ERRORS', '/maxcpucount:4'])
 		sys.exit(exit_code);
-	else:
-		msbuild(project = "msvc/common.msproj", projects = serpent._targets)
-		exit_code = subprocess.call(['msbuild', 'msvc/common.msproj', '/t:Clean', '/p:Platform=Win32', '/p:ADK_PATH=E:\\Workspaces\\Import', '/verbosity:m', '/flp:Summary;Verbosity=minimal;', '/maxcpucount:4'])
-		sys.exit(exit_code);
+
+	print("building solutions end")
 
 def target_run():
 	print ""
@@ -753,8 +738,9 @@ def target_run():
 		print ""
 		print ""				
 
+serpent.build = build;
 serpent.target_run = target_run;
-serpent.target_build = target_build;
-serpent.target_rebuild = target_rebuild;
-serpent.target_clean = target_clean;
+del build
+del target_run
+
 _create_targets('msvc/qt.targets', qt_targets)
