@@ -6,6 +6,7 @@
 #include "FileGlobList.h"
 #include <map>
 #include <set>
+#include <functional>
 
 #include <direct.h>
 #ifdef WINDOWS
@@ -96,6 +97,7 @@ std::map<std::string, PyObject*>   _modules_loaded;
 std::map<std::string, std::string> _options_desc;
 std::map<std::string, std::string> _options_value;
 std::map<std::string, std::string> _license_file;
+std::map<std::string, std::string> _environments;
 std::set<std::string> _targets;
 
 #ifdef HAVE_CURL
@@ -266,18 +268,24 @@ static PyObject* emb_info(PyObject *self, PyObject *args)
 
 static PyObject* emb_license(PyObject *self, PyObject *args, PyObject *kwargs)
 {
-  printf("parsing... license information\n");
   const char *description, *license = "";
   static char *kwlist[] = {"description", "license", NULL};
   if (!PyArg_ParseTupleAndKeywords(args, kwargs, "s|s", kwlist, &description, &license))
     return Py_BuildValue("");
-  //if(PyDict_Contains(license, Py_BuildValue("s", description)) == false ) {
-  //    PyDict_SetItemString(license, description, Py_BuildValue("s", license));  
-  //}
-
   char abspath2[4096];
   _fullpath(abspath2, license, 4096);
   _license_file[description] = abspath2;
+  return Py_BuildValue("");
+}
+
+static PyObject* emb_environment(PyObject *self, PyObject *args, PyObject *kwargs)
+{
+  printf("parsing... environment information\n");
+  const char *description, *license = "";
+  static char *kwlist[] = {"name", "code", NULL};
+  if (!PyArg_ParseTupleAndKeywords(args, kwargs, "s|s", kwlist, &description, &license))
+    return Py_BuildValue("");
+  _environments[description] = license;
   return Py_BuildValue("");
 }
 
@@ -472,7 +480,7 @@ static PyObject* emb_run(PyObject *self, PyObject *args)
 		PyObject* script = PyObject_GetAttrString(obj, "_SERPENT_SCRIPT");
 		PyObject_SetAttrString(obj, "_SERPENT_SCRIPT", Py_BuildValue("s",command));
 		PyObject* workingdir = PyObject_GetAttrString(obj, "_WORKING_DIR");
-		PyObject_SetAttrString(obj, "_WORKING_DIR", Py_BuildValue("s",abspath));
+		PyObject_SetAttrString(obj, "_WORKING_DIR", Py_BuildValue("s",dir.c_str()));
 
 		PyObject *pName, *pModule, *pArgs, *pValue, *pFunc;
 		PyObject *pNewMod = PyModule_New(command);
@@ -559,7 +567,8 @@ static PyObject* emb_repository_download(PyObject *self, PyObject *args)
     }
 }
 
-static PyMethodDef EmbMethods[] = {
+static PyMethodDef EmbMethods[] = {  
+  {"environment", (PyCFunction)emb_environment, METH_VARARGS | METH_KEYWORDS},
   {"license", (PyCFunction)emb_license, METH_VARARGS | METH_KEYWORDS},
 	{"option", (PyCFunction)emb_option, METH_VARARGS | METH_KEYWORDS},
 	{"target", (PyCFunction)emb_target, METH_VARARGS | METH_KEYWORDS},	
@@ -738,9 +747,6 @@ int main(int argc, char** argv)
   modulesdir.append("modules");
   CreateDirectory(modulesdir.c_str(), false);   
 
-  printf("%s\n", packagesdir.c_str());
-  printf("%s\n", bindir.c_str());
-
   std::string root = "";
   int lastKnownOption = 1;  
   for( int i = 0; i < argc; ++i ) 
@@ -754,103 +760,105 @@ int main(int argc, char** argv)
   }
 
 
-  printf("Set cwd to %s\n", root.c_str());
-  printf("last option %d\n", lastKnownOption);
-  printf("last option %s\n", argv[lastKnownOption]);
+  std::function<void(int,char**,int)> parse_buildenv = [](int argc, char** argv, int lastKnownOption){
+      #ifdef HAVE_CURL  
+      curl = curl_easy_init();
+      #endif  
 
-	#ifdef HAVE_CURL	
-	curl = curl_easy_init();
-	#endif  
+      //freopen("NUL:", "a", stdout);
+      //freopen("NUL:", "a", stderr);
+      char workingDirectory[2048];
+      _getcwd(workingDirectory, 2048);
 
-
-	char workingDirectory[2048];
-	_getcwd(workingDirectory, 2048);
-
-    Py_Initialize();
-    load_serpent_home_dir();  
+        Py_Initialize();
+        load_serpent_home_dir();  
 
 
 
-	options = PyDict_New();
-	targets = PyList_New(0);
-	platforms = PyList_New(0);
-	parse_argv(argv + lastKnownOption + 1, argc - (lastKnownOption + 1));
-	
-  obj = Py_InitModule("serpent", EmbMethods);
-  PyObject_SetAttrString(obj, "content", Py_BuildValue("i", false));
-	PyObject_SetAttrString(obj, "action", Py_BuildValue("s", argv[lastKnownOption]));
-	PyObject_SetAttrString(obj, "triggers", options);
-	PyObject_SetAttrString(obj, "targets", targets);
-	PyObject_SetAttrString(obj, "platforms", platforms);
-	PyObject_SetAttrString(obj, "_SERPENT_COMMAND", Py_BuildValue("s",argv[0]));
-	PyObject_SetAttrString(obj, "_SERPENT_VERSION", Py_BuildValue("s","0.0.98"));
-	PyObject_SetAttrString(obj, "_SERPENT_SCRIPT", Py_BuildValue("s",file.c_str()));
-	PyObject_SetAttrString(obj, "_WORKING_DIR", Py_BuildValue("s",workingDirectory));
-  PyObject_SetAttrString(obj, "_SERPENT_LOG", _nolog == true ? Py_False : Py_True);
+      options = PyDict_New();
+      targets = PyList_New(0);
+      platforms = PyList_New(0);
+      parse_argv(argv + lastKnownOption + 1, argc - (lastKnownOption + 1));
+      
+      obj = Py_InitModule("serpent", EmbMethods);
+      PyObject_SetAttrString(obj, "content", Py_BuildValue("i", false));
+      PyObject_SetAttrString(obj, "action", Py_BuildValue("s", argv[lastKnownOption]));
+      PyObject_SetAttrString(obj, "triggers", options);
+      PyObject_SetAttrString(obj, "targets", targets);
+      PyObject_SetAttrString(obj, "platforms", platforms);
+      PyObject_SetAttrString(obj, "_SERPENT_COMMAND", Py_BuildValue("s",argv[0]));
+      PyObject_SetAttrString(obj, "_SERPENT_VERSION", Py_BuildValue("s","0.0.98"));
+      PyObject_SetAttrString(obj, "_SERPENT_SCRIPT", Py_BuildValue("s",file.c_str()));
+      PyObject_SetAttrString(obj, "_WORKING_DIR", Py_BuildValue("s",workingDirectory));
+      PyObject_SetAttrString(obj, "_WORKING_ROOT", Py_BuildValue("s",workingDirectory));
+      PyObject_SetAttrString(obj, "_SERPENT_LOG", _nolog == true ? Py_False : Py_True);
 
-  
-	PyObject* serpent_dictionary = PyModule_GetDict(obj);
-	PyDict_SetItemString(serpent_dictionary, "__builtins__", PyEval_GetBuiltins());
+      
+      PyObject* serpent_dictionary = PyModule_GetDict(obj);
+      PyDict_SetItemString(serpent_dictionary, "__builtins__", PyEval_GetBuiltins());
 
-	extern std::string data;	
-	PyObject* pValue = PyRun_String(data.c_str(), Py_file_input, serpent_dictionary, serpent_dictionary);
-	if (pValue == NULL) {
-	   PyErr_Print();
-	}
-	
-  printf("Run serpent on %s\n", file.c_str());
-	PyObject* tuple = PyTuple_New(1);
-	PyTuple_SetItem(tuple, 0, Py_BuildValue("s", file.c_str()));
-	emb_run(0, tuple);
+      extern std::string data;  
+      PyObject* pValue = PyRun_String(data.c_str(), Py_file_input, serpent_dictionary, serpent_dictionary);
+      if (pValue == NULL) {
+         PyErr_Print();
+      }
+      
+      printf("Run serpent on %s\n", file.c_str());
+      PyObject* tuple = PyTuple_New(1);
+      PyTuple_SetItem(tuple, 0, Py_BuildValue("s", file.c_str()));
+      emb_run(0, tuple);
 
-	PyObject* pFunc = PyObject_GetAttrString(obj, (char*)"build");
-	if( pFunc )
-	{
-		if (PyCallable_Check(pFunc)) {
-			PyObject_CallObject(pFunc,0);
-			PyErr_Print();		
-		} else {
-			PyErr_Print();
-		}
-	}	
+      PyObject* pFunc = PyObject_GetAttrString(obj, (char*)"build");
+      if( pFunc )
+      {
+        if (PyCallable_Check(pFunc)) {
+          PyObject_CallObject(pFunc,0);
+          PyErr_Print();    
+        } else {
+          PyErr_Print();
+        }
+      } 
 
-	/*
-	std::ifstream t(file.c_str());
-	std::string str((std::istreambuf_iterator<char>(t)), std::istreambuf_iterator<char>());
-	PyObject* main_module = PyImport_AddModule("__main__");
-	//PyModule_AddStringConstant(main_module, "__file__", "BUILDENV");
+      /*
+      std::ifstream t(file.c_str());
+      std::string str((std::istreambuf_iterator<char>(t)), std::istreambuf_iterator<char>());
+      PyObject* main_module = PyImport_AddModule("__main__");
+      //PyModule_AddStringConstant(main_module, "__file__", "BUILDENV");
 
-	main_dict = PyModule_GetDict(main_module);
-	PyObject* local_dict = PyDict_New();
-	PyDict_SetItemString(local_dict, "serpent", obj);
-	PyObject* runned = PyRun_String(str.c_str(), Py_file_input, main_dict, local_dict);
-	if (runned == NULL) {
-       PyErr_Print();
-	} else { 
+      main_dict = PyModule_GetDict(main_module);
+      PyObject* local_dict = PyDict_New();
+      PyDict_SetItemString(local_dict, "serpent", obj);
+      PyObject* runned = PyRun_String(str.c_str(), Py_file_input, main_dict, local_dict);
+      if (runned == NULL) {
+           PyErr_Print();
+      } else { 
 
-		PyObject* pFunc = PyObject_GetAttrString(obj, (char*)"build");
-		if( pFunc )
-		{
-			if (PyCallable_Check(pFunc)) {
-				PyObject_CallObject(pFunc,0);
-				PyErr_Print();		
-			} else {
-				PyErr_Print();
-			}
-		}		
-	}
-	*/
+        PyObject* pFunc = PyObject_GetAttrString(obj, (char*)"build");
+        if( pFunc )
+        {
+          if (PyCallable_Check(pFunc)) {
+            PyObject_CallObject(pFunc,0);
+            PyErr_Print();    
+          } else {
+            PyErr_Print();
+          }
+        }   
+      }
+      */
 
-	Py_Finalize();
+      Py_Finalize();
+      //freopen("CONIN$", "r", stdin); 
+      //freopen("CONOUT$", "w", stdout); 
+      //freopen("CONOUT$", "w", stderr);   
 
-	#ifdef HAVE_CURL
-	curl_easy_cleanup(curl);
-	#endif
+      #ifdef HAVE_CURL
+      curl_easy_cleanup(curl);
+      #endif    
+  };
 
-
-  printf("last option %d\n", lastKnownOption);
 	if( argv[lastKnownOption] != 0 && strcmp(argv[lastKnownOption], "help") == 0)
 	{
+    parse_buildenv(argc,argv,lastKnownOption);
 		printf("env file action [option1] [option1]\r\n");
 		printf("\n");
 		printf("\tSupported Triggers:\n");
@@ -873,6 +881,7 @@ int main(int argc, char** argv)
 	}
   else if( argv[lastKnownOption] != 0 && strcmp(argv[lastKnownOption], "license") == 0)
   {
+    parse_buildenv(argc,argv,lastKnownOption);
     printf("env file action [option1] [option1]\r\n");
     printf("\n");
     printf("\tLicenses:\n");
@@ -886,6 +895,44 @@ int main(int argc, char** argv)
       CopyFile(itt->second.c_str(), file.c_str(), false);      
     }
   }  
+  else if( argv[lastKnownOption] != 0 && strcmp(argv[lastKnownOption], "env") == 0)
+  {
+    parse_buildenv(argc,argv,lastKnownOption);
+    for( std::map<std::string, std::string>::iterator itt = _environments.begin(); itt != _environments.end(); ++itt ) {
+      std::string environmentName;
+      environmentName.append(bindir);
+      environmentName.append("/activate-");
+      environmentName.append(itt->first.c_str());
+      environmentName.append(".bat");
+      std::ofstream myfile;
+      myfile.open(environmentName.c_str());
+      myfile << itt->second.c_str();
+      myfile.close();
+    }
+
+    std::string environmentName;
+    environmentName.append(bindir);
+    environmentName.append("/activate-");
+    environmentName.append(argv[lastKnownOption + 1]);
+    environmentName.append(".bat");
+
+
+    struct stat buffer;   
+    if( (stat(environmentName.c_str(), &buffer) == 0) ) 
+    {
+      std::string environment;
+      environment.append("cmd /k \"call ");
+      environment.append(environmentName.c_str());
+      environment.append("\"");
+      system("cls");
+      printf("activating environment %s\n", environmentName.c_str());      
+      system(environment.c_str());
+    }
+    else
+    {
+      printf("environment does not exists %s\n", environmentName.c_str());
+    }
+  }    
   else if( argv[lastKnownOption] != 0 && strcmp(argv[lastKnownOption], "--h") == 0)
   {
     printf("env file action [option1] [option1]\r\n");
