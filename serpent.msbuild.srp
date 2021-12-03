@@ -56,6 +56,9 @@ def external(project, name, configuration = serpent._configurations, depends = [
 
 
 def cmake(name, project, folder, input, arguments = [], configuration = serpent._configurations):
+	project = os.path.abspath(project)
+	folder = os.path.abspath(folder)
+	input = os.path.abspath(input)
 	relative_input = os.path.relpath(input, folder)
 	if not os.path.exists(folder): os.makedirs(folder)
 	if not os.path.exists(input):
@@ -63,6 +66,8 @@ def cmake(name, project, folder, input, arguments = [], configuration = serpent.
 	def _premake():
 		print serpent._targets
 		if name in serpent._targets:
+			print ["C:\\Program Files (x86)\\CMake\\bin\\cmake.exe", relative_input] + arguments
+			print folder
 			output = subprocess.call(["C:\\Program Files (x86)\\CMake\\bin\\cmake.exe", relative_input] + arguments, cwd=folder)
 		external(name = name, project = project, configuration = configuration )
 	serpent._premake.append(_premake)
