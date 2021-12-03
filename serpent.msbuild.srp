@@ -1,10 +1,10 @@
-import serpent, os, subprocess, ctypes, re, sys, StringIO
-from inspect import getframeinfo, stack
-print("file: " + __file__ )
+import serpent, os, subprocess, ctypes, re, sys, StringIO, warnings
 
 def debuginfo():
-    caller = getframeinfo(stack()[2][0])
-    return caller.filename, caller.lineno
+	warnings.simplefilter("ignore")
+	from inspect import getframeinfo, stack
+	caller = getframeinfo(stack()[2][0])
+	return caller.filename, caller.lineno
 
 serpent.default_toolversion = '4.0'
 serpent.default_toolset = 'v110'
@@ -776,7 +776,7 @@ _build = serpent.build
 
 def union_targets():
 	p = set(serpent._targets)
-	if "*" in serpent._targets:			
+	if "*" in p:			
 		for x in serpent._internal: p.add(x)
 		serpent._targets = list(p)
 	else:
@@ -946,3 +946,17 @@ visual_studio_toolset = serpent.map(
 	lambda x: dict(x)[serpent.triggers['workspace']],
 	data = [("vs2015", 'v140'),("vs2017", 'v141')]
 )
+
+def shortcut(link, target, description, working_dir, arguments=""):
+	if os.path.isfile(link):
+		os.remove(link)
+	if not os.path.isfile(link):
+		import win32com.client
+		fso = win32com.client.Dispatch("Scripting.FileSystemObject")
+		oWS = win32com.client.Dispatch("WScript.Shell")		
+		oLink = oWS.CreateShortcut(link)
+		oLink.Description = description
+		oLink.TargetPath = os.path.join(serpent._WORKING_DIR, target)
+		oLink.WorkingDirectory = os.path.join(serpent._WORKING_DIR, working_dir)
+		oLink.Arguments = arguments
+		oLink.Save()

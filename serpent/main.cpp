@@ -131,7 +131,10 @@ static PyObject* emb_load(PyObject *self, PyObject *args)
     const char *command;
     if (!PyArg_ParseTuple(args, "s", &command))
         return Py_BuildValue("");
-  printf("loading... %s\n", command);
+
+    if( _debug == true ) {        
+        printf("loading... %s\n", command);
+    }
 	
     if( strstr(command,"http"))
     {
@@ -230,7 +233,7 @@ static PyObject* emb_load(PyObject *self, PyObject *args)
 	//Lazy load the module...
 	if( _modules_loaded.find(abspath) == _modules_loaded.end() ) {		
 		if( _debug == true ) {
-			printf("Loading new module %s\n", abspath);
+			printf("Loading new module %s\n", abspath.c_str());
 		}
 
 		std::ifstream t(abspath);
@@ -250,7 +253,7 @@ static PyObject* emb_load(PyObject *self, PyObject *args)
 		return pNewMod;
 	} else {
 		if( _debug == true ) {
-			printf("Loading existing module %s\n", abspath);
+			printf("Loading existing module %s\n", abspath.c_str());
 		}
 		Py_INCREF(_modules_loaded.find(abspath)->second);
 		return _modules_loaded.find(abspath)->second;
@@ -280,7 +283,9 @@ static PyObject* emb_license(PyObject *self, PyObject *args, PyObject *kwargs)
 
 static PyObject* emb_environment(PyObject *self, PyObject *args, PyObject *kwargs)
 {
-  printf("parsing... environment information\n");
+  if( _debug == true ) {  
+    printf("parsing... environment information\n");
+  } 
   const char *description, *license = "";
   static char *kwlist[] = {"name", "code", NULL};
   if (!PyArg_ParseTupleAndKeywords(args, kwargs, "s|s", kwlist, &description, &license))
@@ -428,7 +433,9 @@ static PyObject* emb_run(PyObject *self, PyObject *args)
 
 	char abspath[4096];
 	_fullpath(abspath, command, 4096);
-  printf("including... information %s\n", abspath);
+  if( _debug == true ) {
+     printf("including... information %s\n", abspath);
+  }
 	if( _modules_loaded.find(abspath) == _modules_loaded.end() ) 
 	{
 		std::string dir(abspath, strrchr(abspath,'\\') > strrchr(abspath, '/') ? strrchr(abspath, '\\') : strrchr(abspath, '/'));
@@ -658,7 +665,7 @@ LPSTR* CommandLineToArgvA(LPSTR lpCmdLine, INT *pNumArgs)
 
 bool parse_responsefile(const char* responseFile);
 
-bool parse_argv(char* action, char** argv, int argc, char** workspaceFolder)
+bool parse_argv(char* action, char** argv, int argc, char** workspaceFolder, char** type)
 {
   int offset = 0;
   if( action != nullptr ) 
@@ -671,6 +678,14 @@ bool parse_argv(char* action, char** argv, int argc, char** workspaceFolder)
               offset = offset + 1;          
           }
       }
+      if( strcmp(action, "help") == 0 )
+      {
+          if( argv[offset] != nullptr && argv[offset][0] != '-' && argv[offset][0] != '/'  && argv[offset][0] != '@' )
+          {
+              *type = argv[offset];
+              offset = offset + 1;          
+          }
+      }      
   }
 
 
@@ -718,7 +733,7 @@ bool parse_responsefile(const char* responseFile)
 		#ifdef WINDOWS
 		int argc = 0;
 		char** argv = CommandLineToArgvA((char*)str.c_str(), &argc);
-    parse_argv(nullptr, argv, argc, nullptr);    
+    parse_argv(nullptr, argv, argc, nullptr, nullptr);    
 		return true;
 		#endif 
 	}
@@ -773,7 +788,7 @@ int main(int argc, char** argv)
   }
 
 
-  std::function<void(int,char**,int)> parse_buildenv = [](int argc, char** argv, int lastKnownOption){
+  std::function<void(int,char**,int, const std::function<void(char*)>&)> parse_buildenv = [](int argc, char** argv, int lastKnownOption, const std::function<void(char*)>& subaction){
       #ifdef HAVE_CURL  
       curl = curl_easy_init();
       #endif  
@@ -788,11 +803,12 @@ int main(int argc, char** argv)
 
 
       char* workspaceFolder = "msvc";
+      char* helpAction = "info";
 
       options = PyDict_New();
       targets = PyList_New(0);
       platforms = PyList_New(0);
-      parse_argv(argv[lastKnownOption], argv + lastKnownOption + 1, argc - (lastKnownOption + 1), &workspaceFolder);
+      parse_argv(argv[lastKnownOption], argv + lastKnownOption + 1, argc - (lastKnownOption + 1), &workspaceFolder, &helpAction);
       
       obj = Py_InitModule("serpent", EmbMethods);
       PyObject_SetAttrString(obj, "content", Py_BuildValue("i", false));
@@ -818,7 +834,11 @@ int main(int argc, char** argv)
          PyErr_Print();
       }
       
-      printf("Run serpent on %s\n", file.c_str());
+      if( _debug )
+      {
+          printf("Run serpent on %s\n", file.c_str());
+      }
+
       PyObject* tuple = PyTuple_New(1);
       PyTuple_SetItem(tuple, 0, Py_BuildValue("s", file.c_str()));
       emb_run(0, tuple);
@@ -869,34 +889,58 @@ int main(int argc, char** argv)
       #ifdef HAVE_CURL
       curl_easy_cleanup(curl);
       #endif    
+
+      if( subaction )
+      {
+          subaction(helpAction);
+      }
   };
 
 	if( argv[lastKnownOption] != 0 && strcmp(argv[lastKnownOption], "help") == 0)
 	{
-    parse_buildenv(argc,argv,lastKnownOption);
-		printf("env file action [option1] [option1]\r\n");
-		printf("\n");
-		printf("\tSupported Triggers:\n");
-		for( std::map<std::string, std::string>::iterator itt = _options_desc.begin(); itt != _options_desc.end(); ++itt ) {
-			printf("\t--%s=%s %s\n", itt->first.c_str(), _options_value[itt->first].c_str(), itt->second.c_str());
-		}
+    parse_buildenv(argc,argv,lastKnownOption, [](char* subaction){
+      printf("env file action [option1] [option1]\r\n");
 
-		printf("\n");
-		printf("\tSupported Targets:\n");
-		for( std::set<std::string>::iterator itt = _targets.begin(); itt != _targets.end(); ++itt ) {
-			printf("\t/t:%s\n", (*itt).c_str());
-		}
+      if( strcmp(subaction, "triggers") == 0x0 || strcmp(subaction, "info") == 0x0)    
+      {      
+        printf("\n");        
+        printf("\tSupported Triggers:\n");
+        for( std::map<std::string, std::string>::iterator itt = _options_desc.begin(); itt != _options_desc.end(); ++itt ) {
+          printf("\t--%s=%s %s\n", itt->first.c_str(), _options_value[itt->first].c_str(), itt->second.c_str());
+        }        
+      }
 
-		printf("\n");
-		printf("\tSupported Actions:\n");
-		printf("\t%s\n", "Clean");
-		printf("\t%s\n", "Build");
-		printf("\t%s\n", "Rebuild");
-		printf("\t%s\n", "Workspace");
+      if( strcmp(subaction, "targets") == 0x0 )
+      {
+        printf("\n");
+        printf("\tSupported Targets:\n");
+        for( std::set<std::string>::iterator itt = _targets.begin(); itt != _targets.end(); ++itt ) {
+          printf("\t/t:%s\n", (*itt).c_str());
+        }
+      }
+      else if( strcmp(subaction, "info") == 0x0 )
+      {
+        printf("\n");
+        printf("\tSupported Targets:\n");
+        printf("\t/t:*\n");       
+      }
+      
+      if( strcmp(subaction, "actions") == 0x0 || strcmp(subaction, "info") == 0x0 )
+      {
+        printf("\n");
+        printf("\tSupported Actions:\n");
+        printf("\t%s\n", "Clean");
+        printf("\t%s\n", "Build");
+        printf("\t%s\n", "Rebuild");
+        printf("\t%s\n", "Workspace");
+      }
+
+
+    });
 	}
   else if( argv[lastKnownOption] != 0 && strcmp(argv[lastKnownOption], "license") == 0)
   {
-    parse_buildenv(argc,argv,lastKnownOption);
+    parse_buildenv(argc,argv,lastKnownOption, [](const char*){} );
     printf("env file action [option1] [option1]\r\n");
     printf("\n");
     printf("\tLicenses:\n");
@@ -912,7 +956,7 @@ int main(int argc, char** argv)
   }  
   else if( argv[lastKnownOption] != 0 && strcmp(argv[lastKnownOption], "env") == 0)
   {
-    parse_buildenv(argc,argv,lastKnownOption);
+    parse_buildenv(argc,argv,lastKnownOption, [](const char*){} );
     for( std::map<std::string, std::string>::iterator itt = _environments.begin(); itt != _environments.end(); ++itt ) {
       std::string environmentName;
       environmentName.append(bindir);
@@ -968,7 +1012,7 @@ int main(int argc, char** argv)
 	}
   else
   {
-    parse_buildenv(argc,argv,lastKnownOption);
+    parse_buildenv(argc,argv,lastKnownOption, [](const char*){} );
   }
 
 	return 0;
