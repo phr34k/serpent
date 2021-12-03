@@ -1,0 +1,27 @@
+
+serpent.option(
+   trigger     = "python-sdk",
+   value       = "C:\\Python27\\",
+   description = "Python sdk location"
+)
+
+serpent.option(
+   trigger     = "toolset",
+   value       = "v140",
+   description = "Visual Studio Toolset"
+)
+
+msbuild_ext = serpent.load('serpent.msbuild.srp');
+
+msbuild_ext.visual_studio(
+	toolset = serpent.triggers['toolset'],
+	project = "msvc/env.project",
+	files = serpent.glob(['Serpent/*.cpp']),
+	resources = serpent.glob(['Serpent/*.rc']),
+	name = 'serpent_project',
+	defines = ['WINDOWS'],
+	outdir = 'Bin/Release/',
+	intdir = 'Intermediate/env/',
+	includes = [serpent.path.join(serpent.triggers['python-sdk'], 'include')],
+	libs = [serpent.path.join(serpent.triggers['python-sdk'], 'libs/python27.lib')]
+)
