@@ -1,6 +1,5 @@
 import os, tarfile
 path=os.path
-del os
 
 _prebuild = []
 _postbuild = []
@@ -76,12 +75,16 @@ def download(url, hash = None):
     _install.append(_call);  
 
 def artifact(id, version, files = []):
+  for x in range(0, len(files)): files[x] = path.abspath(files[x])
+
   def _artifact_install(id, version):
     repository_search(id, version)
     tar = tarfile.open(".srp/%s.%s.tar.bz2" % (id, version), "r:bz2")
     for file in tar:
       data = tar.extractfile(file.name).read()
-      fout = open(file.name, "w")
+      dirname = os.path.dirname('.srp/' + file.name)
+      if os.path.exists(dirname) == False: os.makedirs(dirname)
+      fout = open('.srp/' + file.name, "wb")
       fout.write(data)
       fout.close()
     tar.close()
@@ -90,6 +93,7 @@ def artifact(id, version, files = []):
     for name in files: tar.add(name)
     tar.close()
   def _create():
+    print "create artifacts"
     _artifact_create(id=id, version=version, files=files)
   def _inst():
     _artifact_install(id=id, version=version)
@@ -98,22 +102,35 @@ def artifact(id, version, files = []):
   _install.append(_inst);
 
 def build():
+  if action is not None:
+    g = globals()
+    functionName = "target_" + action
+    if functionName in g:
+       g[functionName]()
+    else:
+       print "function does not exists"
+
+def target_build():
+  print "Building..."     
+
+def target_rebuild():
+  print "Rebuilding..."
   g = globals()
-  functionName = "target_" + action
-  if functionName in g:
-     g[functionName]()
-  else:
-     print "function does not exists"
+
+def target_clean():    
+  print "Clean..."
 
 def target_package():
   for x in _publish:
     x()
      
 def target_package():
+  print "Packaging artifacts..."
   for x in _artifacts:
     x()
 
 def target_install():
+  print "Resolving artifacts..."
   for x in _install:
     x()
 
