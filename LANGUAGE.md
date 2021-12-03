@@ -45,6 +45,14 @@ from the extension if required.
 msbuild_ext = serpent.load('BUILDENV.MSBUILD.SRP');
 ```
 
+Extensions can be imported relative to the build file or can be automatically downloaded from a http server. When downloading the files the content will be stored in the `%USERPROFILE%/.srp/`folder. And will be automatically referenced, in future versions this 
+is intended on being the defacto distribution method of build rules.
+
+```
+# Loads an extension module in which freeform python can be executed 
+msbuild_ext = serpent.load('http://www.myhost.org/BUILDENV.MSBUILD.SRP');
+```
+
 ## Referencing sub-definitions
 
 Logically your project might be scoped out of several directories where each directory could contain a subset of the build definition. Our model allows you to consume that defintion and make it part of the 'bigger picture'.
