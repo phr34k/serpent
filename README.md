@@ -93,4 +93,4 @@ For a reference and sample output see [Maintenance Script Reference](MAINTENANCE
 
 ## Feedback
 
-Feedback and constributions are always appreciated, just drop a note, or reach out. Please do note that in the current stage the project isn't mature enough to be used in production environments compared to other alternatives such as psake or premake. 
+Feedback and contributions are always appreciated, just drop a note, or reach out. Please do note that in the current stage the project isn't mature enough to be used in production environments compared to other alternatives such as psake or premake. 
