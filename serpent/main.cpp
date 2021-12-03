@@ -938,11 +938,17 @@ int main(int argc, char** argv)
           const char* k = PyString_AsString(key);
           const char* v = PyString_AsString(value);
 
+          int length = strlen(v);
 
-          if( v[strlen(v) - 1] == '\\' ) 
+
+          if( length > 1 && v[length - 1] == '\\' && v[length - 2] == '\\' ) 
+          {
+              myfile << "    serpent.triggers[r\"" << k << "\"] = r\"" << v << "\"\n";
+          }
+          else if( length > 0 && v[length - 1] == '\\'  ) 
           {
               myfile << "    serpent.triggers[r\"" << k << "\"] = r\"" << v << "\\\"\n";
-          }
+          }          
           else
           {
               myfile << "    serpent.triggers[r\"" << k << "\"] = r\"" << v << "\"\n";            

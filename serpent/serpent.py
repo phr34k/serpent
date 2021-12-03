@@ -1,6 +1,5 @@
 import os, tarfile, StringIO, warnings
 warnings.simplefilter("ignore")
-print("Ignore default runtime warnings")
 path=os.path
 
 _prebuild = []
@@ -130,8 +129,6 @@ def build():
     functionName = "target_" + action
     if functionName in g:
        g[functionName]()
-    else:
-       print "function does not exists"
 
 def target_build():
   print "Building..."     
