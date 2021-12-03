@@ -11,6 +11,17 @@ class _option(object):
 
 serpent.map = _option
 
+def from_target(name, *args):
+	if name in serpent._target_outputs:
+		return os.path.join(serpent._target_outputs[name], *args)
+	else:
+		class placeholder:
+			def __str__(x):
+				if name in serpent._target_outputs:
+					return os.path.join(serpent._target_outputs[name], *args)
+				else:
+					raise Exception("No output registerd with name {0} {1}".format( name, serpent._target_outputs ))
+		return placeholder()
 
 
 serpent.option(
@@ -56,6 +67,7 @@ serpent.configuration = {}
 serpent._internal = {}
 serpent._configurations = ['Release']
 serpent._execute_commands = []
+serpent._target_outputs = {}
 
 solutions = []
 Application=1
@@ -71,7 +83,7 @@ qt_targets = """
 	<MakeDir Directories="$(GenDir)"/>
  </Target>
  <Target Name="Moc" Inputs="@(QtIncludes)" BeforeTargets="ClCompile" Outputs="@(QtIncludes->'$(GenDir)/moc_%(Filename).cpp')">
-	<Exec Command = "&quot;$(Moc)&quot; &quot;%(QtIncludes.identity)&quot; -nw -o &quot;$(GenDir)/moc_%(Filename).cpp&quot; $(MocFlags)"/>
+	<Exec Command = "&quot;$(Moc)&quot; &quot;%(QtIncludes.Identity)&quot; -nw -o &quot;$(GenDir)/moc_%(Filename).cpp&quot; $(MocFlags)" />
 	<ItemGroup>
 		<ClCompile Include="$(GenDir)/moc_%(Filename).cpp" Condition="Exists('$(GenDir)/moc_%(Filename).cpp')" />
 	</ItemGroup> 
@@ -287,17 +299,21 @@ def external(project, name, configuration = serpent._configurations, depends = [
 	serpent.projects[name] = project;
 	serpent.target( name = name )
 	project = os.path.abspath(project)
-	def generateWrapper():
-		if generator is not None: generator()
+	def generateWrapper(**kwargs):
+		if generator is not None: generator(**kwargs)
 		if not os.path.exists(project):
 			raise Exception("Path %s does not exists" % project )		
 		serpent._internal[name].guid = find_guid(project)
 	serpent._internal[name] = _external(project, name, None, configuration, depends, options, generateWrapper, debuginfo())
 
-def cmake(name, project, folder, input, arguments = [], configuration = serpent._configurations):
+def cmake(name, project, folder, input, arguments = [], configuration = serpent._configurations, **kwargs):
+
+	base = kwargs.get('base',  os.path.join( serpent._WORKING_ROOT, serpent._SERPENT_WORKAREA ) )
+	project = os.path.abspath(os.path.join(base, project))
+	folder = os.path.abspath(os.path.join(base, folder))
+	serpent._target_outputs[name] = folder
+
 	cmake = find_executable("cmake")
-	project = os.path.abspath(project)
-	folder = os.path.abspath(folder)
 	input = os.path.abspath(input)
 	relative_input = os.path.relpath(input, folder)
 	if not os.path.exists(folder): os.makedirs(folder)
@@ -309,10 +325,11 @@ def cmake(name, project, folder, input, arguments = [], configuration = serpent.
 		except Exception as e:
 			print("error")
 
-	def generate():
+	def generate(**kwargs):
 		print cmake, serpent._targets
 		if name in serpent._targets:
-			output = subprocess.call([cmake, relative_input] + arguments, cwd=folder)
+			dict = { "vs2017": "Visual Studio 15 2017", "vs2015": "Visual Studio 14 2015"}
+			output = subprocess.call([cmake, "-G", dict[serpent.triggers['workspace']], relative_input] + arguments, cwd=folder)
 			print output
 
 	serpent._premake.append(_premake)
@@ -396,16 +413,23 @@ def visual_studio_filters(project, toolversion=serpent.default_toolversion, file
 
 
 
-def  _expand(items, workingdir):
+def  _expand(items, workingdir, absolute = None):
 	for x in range(len(items)):
-		if items[x].startswith(':'):
-			items[x] = items[x].replace(":","")
-		elif items[x] == "":
-			continue	
-		elif items[x].startswith('./'):
-			items[x] = os.path.relpath(items[x], workingdir)
-		elif serpent.path.isabs(items[x]) == False:
-			items[x] = os.path.relpath(items[x], workingdir)
+		if isinstance(items[x], str):
+			if items[x].startswith(':'):
+				items[x] = items[x].replace(":","")
+			elif items[x] == "":
+				continue	
+			elif items[x].startswith('./'):
+				if absolute is None:
+					items[x] = os.path.relpath(items[x], workingdir)
+				else:
+					items[x] = os.path.abspath(items[x])
+			elif serpent.path.isabs(items[x]) == False:
+				if absolute is None:			
+					items[x] = os.path.relpath(items[x], workingdir)
+				else:
+					items[x] = os.path.abspath(items[x])				
 	return items;
 
 
@@ -426,6 +450,7 @@ def ensure_path(directory):
 def visual_studio(project, files, name, **kwargs):
 	if serpent.projects.get(name, None) != None: raise Exception("Duplicate name")
 	deps = kwargs.get('deps', [])
+	base = kwargs.get('base',  os.path.join( serpent._WORKING_ROOT, serpent._SERPENT_WORKAREA ) )
 	toolversion = kwargs.get('toolversion', serpent.default_toolversion)
 	toolset = kwargs.get('toolset', serpent.default_toolset)
 	defines = filter(lambda x: x is not None, kwargs.get('defines', []))
@@ -444,12 +469,13 @@ def visual_studio(project, files, name, **kwargs):
 	headers = kwargs.get('headers', [])
 	runtime = kwargs.get('runtime', 'StaticRuntime')
 
-	project = os.path.abspath(project)
-	intdir = os.path.abspath(intdir)
-	outdir = os.path.abspath(outdir)
-	projdir = os.path.dirname(project)
-	intdir = os.path.relpath(intdir, projdir)
-	outdir = os.path.relpath(outdir, projdir)
+	project = os.path.abspath(os.path.join(base, project))
+	intdir = os.path.abspath(os.path.join(base, intdir)) + "/"
+	outdir = os.path.abspath(os.path.join(base, outdir)) + "/"
+	#intdir = os.path.relpath(intdir, project)
+	#outdir = os.path.relpath(outdir, project)
+
+	serpent._target_outputs[name] = outdir
 
 	_expand(includes, os.path.dirname(project))
 	_expand(libdirs, os.path.dirname(project))
@@ -471,7 +497,7 @@ def visual_studio(project, files, name, **kwargs):
 	serpent.outdirs[name] = outdir;
 	serpent.target( name = name )
 
-	def generate():
+	def generate(**kwargs):
 		_compileopts = " ".join(compileopts);
 		_linkopts = " ".join(linkopts);
 		if not os.path.exists(os.path.dirname(project)): os.mkdir(os.path.dirname(project))
@@ -501,7 +527,7 @@ def visual_studio(project, files, name, **kwargs):
 	</Link>    
   </ItemDefinitionGroup>    
 
-		""" %  (toolversion, toolset, _shared, outdir + '/', intdir + '/', _compileopts, ";".join(defines), ";".join(includes), runtime, ";".join(libdirs), _linkopts, ";".join(libs)))
+		""" %  (toolversion, toolset, _shared, outdir + '/', intdir + '/', _compileopts, ";".join(str(x) for x in defines), ";".join(str(x) for x in includes), runtime, ";".join(str(x) for x in libdirs), _linkopts, ";".join(str(x) for x in libs)))
 
 		for x in condition:
 			fobj.write("<PropertyGroup Condition=\"%s\">\n" % x.condition )
@@ -530,8 +556,9 @@ def visual_studio(project, files, name, **kwargs):
 		fobj.write("</ItemGroup>")
 
 		# Generate the imports for the Visual Studio Project
-		for x in visual_studio_generator(1): fobj.write("<Import Project=\"%s\" />" % x );
-		fobj.write("<Import Project=\"common.props\" />");
+		props = kwargs.get('commonprops', "common.props")
+		for x in visual_studio_generator(1): fobj.write("<Import Project=\"%s\" />" % x )
+		fobj.write("<Import Project=\"%s\" />" % props)
 
 		resources_ = [('ClInclude', headers), ('ClCompile', files), ('ResourceCompile', resources)]
 		for resource_ in resources_:
@@ -563,13 +590,14 @@ def visual_studio(project, files, name, **kwargs):
 		del output_value
 
 	if serpent.action == "workspace" or serpent.action == "build" or serpent.action == "rebuild" or serpent.action == "clean":
-		generate()
+		serpent._internal[name].generate = generate
 				
 
 def qt_project(project, files, name, **kwargs):
 	if serpent.projects.get(name, None) != None: raise Exception("Duplicate name")
 	qt_targets_file = os.path.abspath( os.path.join(os.path.dirname(__file__),'../dist/qt.targets') )
 
+	base = kwargs.get('base',  os.path.join( serpent._WORKING_ROOT, serpent._SERPENT_WORKAREA ) )
 	deps = kwargs.get('deps', [])
 	toolversion = kwargs.get('toolversion', serpent.default_toolversion)
 	toolset = kwargs.get('toolset', serpent.default_toolset)
@@ -592,16 +620,15 @@ def qt_project(project, files, name, **kwargs):
 	headers = kwargs.get('headers', [])
 	runtime = kwargs.get('runtime', 'StaticRuntime')
 
-	project = os.path.abspath(project)
-	intdir = os.path.abspath(intdir)
-	outdir = os.path.abspath(outdir)
-	projdir = os.path.dirname(project)
-	intdir = os.path.relpath(intdir, projdir)
-	outdir = os.path.relpath(outdir, projdir)
+	project = os.path.abspath(os.path.join(base, project))
+	intdir = os.path.abspath(os.path.join(base, intdir)) + "/"
+	outdir = os.path.abspath(os.path.join(base, outdir)) + "/"
+	#intdir = os.path.relpath(intdir, project)
+	#outdir = os.path.relpath(outdir, project)
 
-	_expand(uifiles, os.path.dirname(project))
-	_expand(uiheaders, os.path.dirname(project))
-	_expand(uiresource, os.path.dirname(project))
+	_expand(uifiles, os.path.dirname(project), True)
+	_expand(uiheaders, os.path.dirname(project),True)
+	_expand(uiresource, os.path.dirname(project),True)
 	_expand(includes, os.path.dirname(project))
 	_expand(libdirs, os.path.dirname(project))
 	_expand(files, os.path.dirname(project))
@@ -616,12 +643,11 @@ def qt_project(project, files, name, **kwargs):
 	serpent.outdirs[name] = outdir;
 	serpent.target( name = name )
 	serpent._internal[name] = _external(project, name, '380D6B49-C7EA-4F3A-8383-B50CAC3F054D', depends=depends)
+	includes = [x.replace('\\', '\\\\') for x in includes]	
 
-	if serpent.action == "workspace" or serpent.action == "build" or serpent.action == "rebuild" or serpent.action == "clean":
-
+	def generate(**kwargs):
 		_compileopts = " ".join(compileopts);
 		_linkopts = " ".join(linkopts);
-		includes = [x.replace('\\', '\\\\') for x in includes]
 		if not os.path.exists(os.path.dirname(project)): os.mkdir(os.path.dirname(project))
 		fobj = StringIO.StringIO()
 		fobj.write("""
@@ -647,7 +673,7 @@ def qt_project(project, files, name, **kwargs):
 	  <AdditionalDependencies>%s</AdditionalDependencies>
 	</Link>    
   </ItemDefinitionGroup>
-		""" %  ( str(toolversion), str(toolset), outdir, intdir, _compileopts, ";".join(defines), ";".join(includes), _linkopts, ";".join(libs)))
+		""" %  ( str(toolversion), str(toolset), outdir, intdir, _compileopts, ";".join(str(x) for x in defines), ";".join(str(x) for x in includes), _linkopts, ";".join(str(x) for x in libs)))
 
 		fobj.write("<ItemGroup>")
 		for x in configuration:
@@ -657,10 +683,13 @@ def qt_project(project, files, name, **kwargs):
 			fobj.write("""\t</ProjectConfiguration>\n""")
 		fobj.write("</ItemGroup>")
 
-		for x in visual_studio_generator(1): fobj.write("<Import Project=\"%s\" />" % x );
-		fobj.write("<Import Project=\"common.props\" />");
+		# Generate the imports for the Visual Studio Project
+		props = kwargs.get('commonprops', "common.props")
+		for x in visual_studio_generator(1): fobj.write("<Import Project=\"%s\" />" % x )
+		fobj.write("<Import Project=\"%s\" />" % props)		
 
-		resources_ = [('ClCompile', files), ('UIFiles',	uifiles), ('QtIncludes', uiheaders), ('ResFiles', uiresource), ('ResourceCompile', resources)]
+		duifiles = [str(x) for x in uifiles]
+		resources_ = [('ClCompile', files), ('UIFiles',	duifiles), ('QtIncludes', uiheaders), ('ResFiles', uiresource), ('ResourceCompile', resources)]
 		for resource_ in resources_:
 			fobj.write("<ItemGroup>\n");
 			for x in resource_[1]:			
@@ -690,8 +719,12 @@ def qt_project(project, files, name, **kwargs):
 			output_stream.close()			
 		del output_value
 
-def visual_studio_debug_options(project, executable = "", arguments = "", workingdir = "", environment = []):
-	project = os.path.abspath(project);
+	if serpent.action == "workspace" or serpent.action == "build" or serpent.action == "rebuild" or serpent.action == "clean":
+		serpent._internal[name].generate = generate
+
+def visual_studio_debug_options(project, executable = "", arguments = "", workingdir = "", environment = [], **kwargs):
+	base = kwargs.get('base',  os.path.join( serpent._WORKING_ROOT, serpent._SERPENT_WORKAREA ) )
+	project = os.path.abspath(os.path.join(base, project))
 	projdir = os.path.dirname(project)
 	if not os.path.exists(projdir): os.mkdir(projdir)		
 	userFile = os.path.abspath(project + '.user');
@@ -729,7 +762,7 @@ def visual_studio_solution(solution, format = 12, version = 2012, projects = [])
 
 def msbuild(project, projects = [], prepostbuild=False):
 	if not os.path.exists(os.path.dirname(project)):
-		raise Exception("Path does not exists")
+		raise Exception("Path {0} does not exists".format(project))
 	if serpent.action == "workspace" or serpent.action == "build" or serpent.action == "rebuild" or serpent.action == "clean":		
 
 		'''
@@ -750,7 +783,7 @@ def msbuild(project, projects = [], prepostbuild=False):
 			x = serpent._internal.get(x, None);
 			if x is not None:
 				for y in x.configurations or serpent._configurations:
-					fobj.write("    <ProjectToBuild Include=\"%s\">\n" % os.path.relpath(x.project, os.path.basename(project)));
+					fobj.write("    <ProjectToBuild Include=\"%s\">\n" % os.path.abspath(x.project));
 					options = ';'.join(x.options)
 					fobj.write("    <AdditionalProperties>Configuration=%s;%s</AdditionalProperties>\n" % (y, options))  
 					fobj.write("    </ProjectToBuild>\n")
@@ -793,16 +826,20 @@ def msbuild(project, projects = [], prepostbuild=False):
 		fobj.write("""</Project>""")
 		fobj.close();
 
-def test(project):
-	if not os.path.exists(os.path.dirname(project)): os.mkdir(os.path.dirname(project))
-	fobj = open(project, 'w')
-	fobj.write("<Project xmlns=\"http://schemas.microsoft.com/developer/msbuild/2003\">\n")
-	fobj.write("<PropertyGroup>\n")
-	for x in serpent.triggers:
-		fobj.write("<%s>%s</%s>\n" % (x,serpent.triggers[x],x))
-	fobj.write("</PropertyGroup>\n")
-	fobj.write("</Project>")	
-	fobj.close()
+def test(project, **kwargs):
+	base = kwargs.get('base', serpent._SERPENT_WORKAREA)
+	project = os.path.abspath(os.path.join(base, project))
+	def generate():
+		if not os.path.exists(os.path.dirname(project)): os.mkdir(os.path.dirname(project))
+		fobj = open(project, 'w')
+		fobj.write("<Project xmlns=\"http://schemas.microsoft.com/developer/msbuild/2003\">\n")
+		fobj.write("<PropertyGroup>\n")
+		for x in serpent.triggers:
+			fobj.write("<%s>%s</%s>\n" % (x,serpent.triggers[x],x))
+		fobj.write("</PropertyGroup>\n")
+		fobj.write("</Project>")	
+		fobj.close()
+	return (project, generate)
 
 _build = serpent.build		
 
@@ -842,13 +879,13 @@ def define_hgignore():
 def build():
 	msbuild_exe = find_executable("msbuild", "C:\\Program Files (x86)\\MSBuild\\14.0\\Bin")
 
-	def pregenerate():
+	def pregenerate(**kwargs):
 		for y in serpent._targets:
 			print("pregenerate", y)
 			if y in serpent._internal: 
 				obj = serpent._internal[y]
 				print("running generate", obj.generate)
-				if obj.generate: obj.generate()
+				if obj.generate: obj.generate(**kwargs)
 
 	def solutiongenerate():
 		for x in solutions: 
@@ -874,35 +911,41 @@ def build():
 			if y in serpent._internal: y=serpent._internal[y]
 			serpent._targets = list(set(serpent._targets) | set(y.depends))		
 		for x in serpent._premake: x()
-	if serpent.action == "build":		
+	if serpent.action == "build":	
+		entrypoint = ".srp-workarea/msvc/common.msproj"
+		commonprops, generate = test("msvc/common.props")		
 		union_targets()
-		pregenerate()
+		pregenerate(commonprops=commonprops)
 		for x in serpent._premake: x()
-		test("msvc/common.props")
-		msbuild(project = "msvc/common.msproj", projects = serpent._targets)
-		exit_code = subprocess.call([msbuild_exe, 'msvc/common.msproj', '/t:Build', '/p:Platform=Win32', '/p:ADK_PATH=E:\\Workspaces\\Import', '/verbosity:m',
-		'/flp:Summary;Verbosity=minimal;LogFile=.srp/BUILD_SUMMARY', '/flp1:warningsonly;logfile=.srp/BUILD_WARNINGS', '/flp2:errorsonly;logfile=.srp/BUILD_ERRORS', '/maxcpucount:4'])
+		generate()
+		msbuild(project = entrypoint, projects = serpent._targets)
+		exit_code = subprocess.call([msbuild_exe, entrypoint, '/t:Build', '/p:Platform=Win32', '/p:ADK_PATH=E:\\Workspaces\\Import', '/verbosity:m',
+		'/flp:Summary;Verbosity=minimal;LogFile=.srp-workarea/BUILD_SUMMARY', '/flp1:warningsonly;logfile=.srp-workarea/BUILD_WARNINGS', '/flp2:errorsonly;logfile=.srp-workarea/BUILD_ERRORS', '/maxcpucount:4'])
 		sys.exit(exit_code);
 	if serpent.action == "rebuild":
+		entrypoint = ".srp-workarea/common.msproj"	
+		commonprops, generate = test("msvc/common.props")	
 		union_targets()
-		pregenerate()		
+		pregenerate(commonprops=commonprops)
 		for y in serpent._targets:
 			if y in serpent._internal: y=serpent._internal[y]; serpent._targets = list(set(serpent._targets) | set(y.depends or []))
 		for x in serpent._premake: x()
-		test("msvc/common.props")
-		msbuild(project = "msvc/common.msproj", projects = serpent._targets)
-		exit_code = subprocess.call([msbuild_exe, 'msvc/common.msproj', '/t:Rebuild', '/p:Platform=Win32', '/p:ADK_PATH=E:\\Workspaces\\Import', '/verbosity:m',
-		'/flp:Summary;Verbosity=minimal;LogFile=.srp/BUILD_SUMMARY', '/flp1:warningsonly;logfile=.srp/BUILD_WARNINGS', '/flp2:errorsonly;logfile=.srp/BUILD_ERRORS', '/maxcpucount:4'])
+		generate()
+		msbuild(project = entrypoint, projects = serpent._targets)
+		exit_code = subprocess.call([msbuild_exe, entrypoint, '/t:Rebuild', '/p:Platform=Win32', '/p:ADK_PATH=E:\\Workspaces\\Import', '/verbosity:m',
+		'/flp:Summary;Verbosity=minimal;LogFile=.srp-workarea/BUILD_SUMMARY', '/flp1:warningsonly;logfile=.srp-workarea/BUILD_WARNINGS', '/flp2:errorsonly;logfile=.srp-workarea/BUILD_ERRORS', '/maxcpucount:4'])
 		sys.exit(exit_code);
 	if serpent.action == "clean":
+		entrypoint = ".srp-workarea/common.msproj"	
+		commonprops, generate = test("msvc/common.props")	
 		union_targets()
-		pregenerate()		
+		pregenerate(commonprops=commonprops)
 		for y in serpent._targets:
 			if y in serpent._internal: y=serpent._internal[y]; serpent._targets = list(set(serpent._targets) | set(y.depends or []))
 		for x in serpent._premake: x()
-		test("msvc/common.props")
-		msbuild(project = "msvc/common.msproj", projects = serpent._targets)
-		exit_code = subprocess.call([msbuild_exe, 'msvc/common.msproj', '/t:Clean', '/p:Platform=Win32', '/p:ADK_PATH=E:\\Workspaces\\Import', '/verbosity:m', '/flp:Summary;Verbosity=minimal;LogFile=.srp/BUILD_SUMMARY', '/flp1:warningsonly;logfile=.srp/BUILD_WARNINGS', '/flp2:errorsonly;logfile=.srp/BUILD_ERRORS', '/maxcpucount:4'])
+		generate()
+		msbuild(project = entrypoint, projects = serpent._targets)
+		exit_code = subprocess.call([msbuild_exe, entrypoint, '/t:Clean', '/p:Platform=Win32', '/p:ADK_PATH=E:\\Workspaces\\Import', '/verbosity:m', '/flp:Summary;Verbosity=minimal;LogFile=.srp-workarea/BUILD_SUMMARY', '/flp1:warningsonly;logfile=.srp-workarea/BUILD_WARNINGS', '/flp2:errorsonly;logfile=.srp-workarea/BUILD_ERRORS', '/maxcpucount:4'])
 		sys.exit(exit_code);
 
 def target_run():
@@ -994,3 +1037,6 @@ def contents(file, contents=None, filename=None, variables=serpent.triggers):
 
 serpent.contents = contents
 del contents	
+
+serpent.from_target = from_target
+del from_target
