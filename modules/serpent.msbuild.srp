@@ -700,6 +700,7 @@ def qt_project(project, files, name, **kwargs):
 	serpent.outdirs[name] = outdir;
 	serpent.target( name = name )
 	serpent._internal[name] = _external(project, name, '380D6B49-C7EA-4F3A-8383-B50CAC3F054D', depends=depends)
+	serpent._target_outputs[name] = outdir
 	includes = [x.replace('\\', '\\\\') for x in includes]	
 
 	def generate(**kwargs):
@@ -781,6 +782,8 @@ def qt_project(project, files, name, **kwargs):
 
 def visual_studio_debug_options(project, executable = "", arguments = "", workingdir = "", environment = [], **kwargs):
 	base = kwargs.get('base',  os.path.join( serpent._WORKING_ROOT, serpent._SERPENT_WORKAREA ) )
+	envvars = kwargs.get('envvars',  {} )
+
 	project = os.path.abspath(os.path.join(base, project))
 	projdir = os.path.dirname(project)
 	if not os.path.exists(projdir): os.mkdir(projdir)		
@@ -789,14 +792,17 @@ def visual_studio_debug_options(project, executable = "", arguments = "", workin
 	if isinstance(executable, macro):
 		executable = str(executable);
 	else:
-		executable = os.path.abspath(executable);
+		executable = os.path.abspath(str(executable));
 
 	if isinstance(workingdir, macro):
 		workingdir = str(workingdir);
 	else:
-		workingdir = os.path.abspath(workingdir);
+		workingdir = os.path.abspath(str(workingdir));
 
 	environment1 = "PATH=" + ";".join( environment + ["$(PATH)"] )
+	for var in envvars:
+		environment1 = environment1 + "\n" + var + "=" + ";".join( "$(" + var + ")" if x == True else x for x in envvars[var] )
+
 	fobj = open(userFile, 'w')
 	fobj.write("""<?xml version="1.0" encoding="utf-8"?>
 	<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
@@ -1093,8 +1099,15 @@ def contents(file, contents=None, filename=None, variables=serpent.triggers):
 	f.close()	
 
 
+def abspath(name):
+	return os.path.abspath(name)
+
 serpent.contents = contents
 del contents	
 
 serpent.from_target = from_target
 del from_target
+
+
+serpent.abspath = abspath
+del abspath
