@@ -1,7 +1,7 @@
 
 PYTHON=C:\Python27\ 
 
-PYTHON_DLL=$(PYHON)python27.dll
+PYTHON_DLL=$(PYTHON)python27.dll
 TARGET=bin\release\denv.exe
 CC=cl
 
