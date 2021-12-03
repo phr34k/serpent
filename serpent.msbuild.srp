@@ -2,9 +2,9 @@ import serpent, os, subprocess, ctypes, re, sys, StringIO
 from inspect import getframeinfo, stack
 print("file: " + __file__ )
 
-def debuginfo(message):
+def debuginfo():
     caller = getframeinfo(stack()[2][0])
-    print "%s:%d - %s" % (caller.filename, caller.lineno, message)
+    return caller.filename, caller.lineno
 
 serpent.default_toolversion = '4.0'
 serpent.default_toolset = 'v110'
@@ -40,14 +40,91 @@ qt_targets = """
 </Target>
 """
 
+
+def which(pgm):
+    path=os.getenv('PATH')
+    for p in path.split(os.path.pathsep):
+        p=os.path.join(p,pgm)
+        if os.path.exists(p) and os.access(p,os.X_OK):
+            return p
+
+def find_executable(executable, path=None):
+    """Find if 'executable' can be run. Looks for it in 'path'
+    (string that lists directories separated by 'os.pathsep';
+    defaults to os.environ['PATH']). Checks for all executable
+    extensions. Returns full path or None if no command is found.
+    """
+    if path is None:
+        path = os.environ['PATH']
+    paths = path.split(os.pathsep)
+    extlist = ['']
+    if os.name == 'os2':
+        (base, ext) = os.path.splitext(executable)
+        # executable files on OS/2 can have an arbitrary extension, but
+        # .exe is automatically appended if no dot is present in the name
+        if not ext:
+            executable = executable + ".exe"
+    elif sys.platform == 'win32':
+        pathext = os.environ['PATHEXT'].lower().split(os.pathsep)
+        (base, ext) = os.path.splitext(executable)
+        if ext.lower() not in pathext:
+            extlist = pathext
+    for ext in extlist:
+        execname = executable + ext
+        if os.path.isfile(execname):
+            return execname
+        else:
+            for p in paths:
+                f = os.path.join(p, execname)
+                if os.path.isfile(f):
+                    return f
+    else:
+        return None
+
+def find_file(file, paths=None):
+    paths = path.split(os.pathsep)
+    for p in paths:
+        f = os.path.join(p, file)
+        if os.path.isfile(f):
+            return f
+    else:
+        return None
+
+def find_guid(file):
+	f = open(file, 'r')
+	content = f.read()
+	f.close()
+	guid = '380D6B49-C7EA-4F3A-8383-B50CAC3F054D';
+	match = re.search("\<ProjectGuid\>\{([A-Za-z0-9\-]+)\}\<\/ProjectGuid\>", content)
+	if match is not None:
+		guid = match.groups(1)[0]
+	del content
+	del match
+	return guid
+
+class _placeholder:
+	def __init__(self):
+		self.generated = None
+
+class _option(object):
+    def __init__(self, mapping, data = None):
+        self.mapping = mapping
+        self.value = None
+        self.data = data
+    def __str__(self):
+    	if self.value is None: self.value = self.mapping(self.data)
+        return str(self.value)
+
 class _external:
-	def __init__(self, project, name, guid, configurations = None, depends = None, options = []):
+	def __init__(self, project, name, guid, configurations = None, depends = None, options = [], generate = None, debug=None):
 		self.name = name
 		self.project = os.path.abspath(project)
 		self.configurations = configurations
 		self.guid = guid
 		self.depends = depends
 		self.options = options
+		self.generate = generate
+		self.debug = debug
 
 class _project:
 	def __init__(self, project, name, guid, configurations = None, depends = None, options = []):
@@ -66,11 +143,13 @@ class _condition:
 class _solution:
 	def __init__(self, **kwargs):
 		self.kwargs = kwargs
+
 	def generate(self):
 		solution = self.kwargs.get('solution', None)
 		format = self.kwargs.get('format', 12), 
 		version = self.kwargs.get('version', 2012), 
 		projects = self.kwargs.get('projects', [])
+		debug = self.kwargs.get('debug', None)
 
 		solutiondir = os.path.dirname(solution)
 		if not os.path.exists(solutiondir): os.mkdir(solutiondir)
@@ -79,20 +158,23 @@ class _solution:
 		fobj.write("""# Visual Studio %s\n\r""" % version);
 
 		for project in projects:
-			obj = serpent._internal[project]
-			relative_path = os.path.relpath(obj.project, solutiondir)
-			guid = None
-			if obj.project.endswith(".csproj"):
-				guid = "{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}";
-			elif obj.project.endswith(".vcxproj"):
-				guid = "{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}";			
-			fobj.write("""Project("%s") = "%s", "%s", "{%s}"\n\r""" % (guid, obj.name, relative_path, obj.guid));
-			fobj.write("""EndProject\n\r""");
+			if project in serpent._internal:		
+				obj = serpent._internal[project]
+				relative_path = os.path.relpath(obj.project, solutiondir)
+				guid = None
+				if obj.project.endswith(".csproj"):
+					guid = "{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}";
+				elif obj.project.endswith(".vcxproj"):
+					guid = "{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}";			
+				fobj.write("""Project("%s") = "%s", "%s", "{%s}"\n\r""" % (guid, obj.name, relative_path, obj.guid));
+				fobj.write("""EndProject\n\r""");
+			else:
+				raise Exception("%s is not an name of a valid target: %s %s" % (project, debug[0], debug[1], ) )
 
 		output_value = fobj.getvalue();
 		fobj.close();
 		del fobj
-		
+	
 		if os.path.isfile(solution):
 			output_stream = open(solution, 'r')
 			value = output_stream.read()
@@ -167,31 +249,21 @@ class macro:
 	def __str__(self):
 		return self.value
 
-def external(project, name, configuration = serpent._configurations, depends = [], options = [] ):
-	debuginfo(project)
-	if not os.path.exists(project):
-		raise Exception("Path %s does not exists" % project )
+def external(project, name, configuration = serpent._configurations, depends = [], options = [], generator = None ):
 	if serpent.projects.get(name, None) != None:
 		raise Exception("Duplicate name")
 	serpent.projects[name] = project;
-	# if configuration is not None:
-	#	serpent.configuration[name] = configuration
 	serpent.target( name = name )
-
-	f = open(project, 'r')
-	content = f.read()
-	f.close()
-
-	guid = '380D6B49-C7EA-4F3A-8383-B50CAC3F054D';
-	match = re.search("\<ProjectGuid\>\{([A-Za-z0-9\-]+)\}\<\/ProjectGuid\>", content)
-	if match is not None:
-		guid = match.groups(1)[0]
-	serpent._internal[name] = _external(project, name, guid, configuration, depends, options)
-	del content
-	del match
-
+	project = os.path.abspath(project)
+	def generateWrapper():
+		if generator is not None: generator()
+		if not os.path.exists(project):
+			raise Exception("Path %s does not exists" % project )		
+		serpent._internal[name].guid = find_guid(project)
+	serpent._internal[name] = _external(project, name, None, configuration, depends, options, generateWrapper, debuginfo())
 
 def cmake(name, project, folder, input, arguments = [], configuration = serpent._configurations):
+	cmake = find_executable("cmake")
 	project = os.path.abspath(project)
 	folder = os.path.abspath(folder)
 	input = os.path.abspath(input)
@@ -200,12 +272,20 @@ def cmake(name, project, folder, input, arguments = [], configuration = serpent.
 	if not os.path.exists(input):
 		raise Exception("Input folder does not exists")	
 	def _premake():
-		print serpent._targets
+		try:
+			pass			
+		except Exception as e:
+			print("error")
+
+	def generate():
+		print cmake, serpent._targets
 		if name in serpent._targets:
-			output = subprocess.call(["C:\\Program Files (x86)\\CMake\\bin\\cmake.exe", relative_input] + arguments, cwd=folder)
-		external(name = name, project = project, configuration = configuration )
+			output = subprocess.call([cmake, relative_input] + arguments, cwd=folder)
+			print output
+
 	serpent._premake.append(_premake)
 	serpent.target( name = name )
+	external(name = name, project = project, configuration = configuration, generator=generate )
 	del _premake
 
 def visual_studio_dirname(x):
@@ -458,6 +538,7 @@ def visual_studio(project, files, name, **kwargs):
 
 def qt_project(project, files, name, **kwargs):
 	if serpent.projects.get(name, None) != None: raise Exception("Duplicate name")
+	qt_targets_file = os.path.abspath( os.path.join(os.path.dirname(__file__),'../dist/qt.targets') )
 
 	deps = kwargs.get('deps', [])
 	toolversion = kwargs.get('toolversion', serpent.default_toolversion)
@@ -558,7 +639,7 @@ def qt_project(project, files, name, **kwargs):
  
 		# Generate the imports for the Visual Studio Project
 		for x in visual_studio_generator(2): fobj.write("<Import Project=\"%s\" />" % x );
-		fobj.write("<Import Project=\"qt.targets\" />");
+		fobj.write("<Import Project=\"%s\" />" % qt_targets_file);
 		fobj.write("</Project>");
 
 		output_value = fobj.getvalue();
@@ -610,11 +691,11 @@ def visual_studio_debug_options(project, executable = "", arguments = "", workin
 
 def visual_studio_solution(solution, format = 12, version = 2012, projects = []):
 	solution = os.path.abspath(solution);
-	v = _solution(solution=solution, format=format, version=version, projects=projects)
+	v = _solution(solution=solution, format=format, version=version, projects=projects, debug=debuginfo())
 	solutions.append(v)
 
 
-def msbuild(project, projects = []):
+def msbuild(project, projects = [], prepostbuild=False):
 	if not os.path.exists(os.path.dirname(project)):
 		raise Exception("Path does not exists")
 	if serpent.action == "workspace" or serpent.action == "build" or serpent.action == "rebuild" or serpent.action == "clean":		
@@ -663,19 +744,19 @@ def msbuild(project, projects = []):
 		    </Target>
 		""")
 
-	
-		fobj.write("""
-			<Target Name="Prebuild" BeforeTargets="Build;Rebuild;Clean">
-				<message text="Prebuild target running" importance="high" ></message>
-				<Exec Command="%s prebuild" WorkingDirectory="%s" />				
-			</Target>
-			<Target Name="Postbuild" AfterTargets="Build;Rebuild;Clean">
-				<message text="Postbuild target running" importance="high"></message>
-				<Exec Command="%s postbuild" WorkingDirectory="%s" />				
-			</Target>
-		    <Target Name="Empty">
-		    </Target>
-		""" % (serpent._SERPENT_COMMAND, serpent._WORKING_DIR, serpent._SERPENT_COMMAND, serpent._WORKING_DIR) )
+		if prepostbuild == True:
+			fobj.write("""
+				<Target Name="Prebuild" BeforeTargets="Build;Rebuild;Clean">
+					<message text="Prebuild target running" importance="high" ></message>
+					<Exec Command="%s prebuild" WorkingDirectory="%s" />				
+				</Target>
+				<Target Name="Postbuild" AfterTargets="Build;Rebuild;Clean">
+					<message text="Postbuild target running" importance="high"></message>
+					<Exec Command="%s postbuild" WorkingDirectory="%s" />				
+				</Target>
+			    <Target Name="Empty">
+			    </Target>
+			""" % (serpent._SERPENT_COMMAND, serpent._WORKING_DIR, serpent._SERPENT_COMMAND, serpent._WORKING_DIR) )
 
 		fobj.write("""</Project>""")
 		fobj.close();
@@ -703,8 +784,32 @@ def union_targets():
 			if y in serpent._internal: y=serpent._internal[y]; serpent._targets = list(set(serpent._targets) | set(y.depends or []))
 
 def build():
+	msbuild_exe = find_executable("msbuild", "C:\\Program Files (x86)\\MSBuild\\14.0\\Bin")
+
+	def pregenerate():
+		for y in serpent._targets:
+			print("pregenerate", y)
+			if y in serpent._internal: 
+				obj = serpent._internal[y]
+				print("running generate", obj.generate)
+				if obj.generate: obj.generate()
+
+	def solutiongenerate():
+		for x in solutions: 
+			try:
+				x.generate()
+			except Exception as xe:
+				print(xe)			
+				print("error generating solution %s" % x.kwargs.get('solution', ''))
+				return False
+		return True
+
 	if _build is not None: _build()
-	for x in solutions: x.generate()
+
+
+	# Generate Visual Studio Solutions
+	if solutiongenerate() == False:
+		return
 
 	if serpent.action == "cmake":
 		for y in serpent._targets:
@@ -713,30 +818,33 @@ def build():
 		for x in serpent._premake: x()
 	if serpent.action == "build":		
 		union_targets()
+		pregenerate()
 		for x in serpent._premake: x()
 		test("msvc/common.props")
 		msbuild(project = "msvc/common.msproj", projects = serpent._targets)
-		exit_code = subprocess.call(['msbuild', 'msvc/common.msproj', '/t:Build', '/p:Platform=Win32', '/p:ADK_PATH=E:\\Workspaces\\Import', '/verbosity:m',
+		exit_code = subprocess.call([msbuild_exe, 'msvc/common.msproj', '/t:Build', '/p:Platform=Win32', '/p:ADK_PATH=E:\\Workspaces\\Import', '/verbosity:m',
 		'/flp:Summary;Verbosity=minimal;LogFile=.srp/BUILD_SUMMARY', '/flp1:warningsonly;logfile=.srp/BUILD_WARNINGS', '/flp2:errorsonly;logfile=.srp/BUILD_ERRORS', '/maxcpucount:4'])
 		sys.exit(exit_code);
 	if serpent.action == "rebuild":
 		union_targets()
+		pregenerate()		
 		for y in serpent._targets:
 			if y in serpent._internal: y=serpent._internal[y]; serpent._targets = list(set(serpent._targets) | set(y.depends or []))
 		for x in serpent._premake: x()
 		test("msvc/common.props")
 		msbuild(project = "msvc/common.msproj", projects = serpent._targets)
-		exit_code = subprocess.call(['msbuild', 'msvc/common.msproj', '/t:Rebuild', '/p:Platform=Win32', '/p:ADK_PATH=E:\\Workspaces\\Import', '/verbosity:m',
+		exit_code = subprocess.call([msbuild_exe, 'msvc/common.msproj', '/t:Rebuild', '/p:Platform=Win32', '/p:ADK_PATH=E:\\Workspaces\\Import', '/verbosity:m',
 		'/flp:Summary;Verbosity=minimal;LogFile=.srp/BUILD_SUMMARY', '/flp1:warningsonly;logfile=.srp/BUILD_WARNINGS', '/flp2:errorsonly;logfile=.srp/BUILD_ERRORS', '/maxcpucount:4'])
 		sys.exit(exit_code);
 	if serpent.action == "clean":
 		union_targets()
+		pregenerate()		
 		for y in serpent._targets:
 			if y in serpent._internal: y=serpent._internal[y]; serpent._targets = list(set(serpent._targets) | set(y.depends or []))
 		for x in serpent._premake: x()
 		test("msvc/common.props")
 		msbuild(project = "msvc/common.msproj", projects = serpent._targets)
-		exit_code = subprocess.call(['msbuild', 'msvc/common.msproj', '/t:Clean', '/p:Platform=Win32', '/p:ADK_PATH=E:\\Workspaces\\Import', '/verbosity:m', '/flp:Summary;Verbosity=minimal;LogFile=.srp/BUILD_SUMMARY', '/flp1:warningsonly;logfile=.srp/BUILD_WARNINGS', '/flp2:errorsonly;logfile=.srp/BUILD_ERRORS', '/maxcpucount:4'])
+		exit_code = subprocess.call([msbuild_exe, 'msvc/common.msproj', '/t:Clean', '/p:Platform=Win32', '/p:ADK_PATH=E:\\Workspaces\\Import', '/verbosity:m', '/flp:Summary;Verbosity=minimal;LogFile=.srp/BUILD_SUMMARY', '/flp1:warningsonly;logfile=.srp/BUILD_WARNINGS', '/flp2:errorsonly;logfile=.srp/BUILD_ERRORS', '/maxcpucount:4'])
 		sys.exit(exit_code);
 
 	print("building solutions end")
@@ -755,6 +863,7 @@ def target_run():
 		print ""
 		print ""				
 
+serpent.map = _option
 serpent.build = build;
 serpent.target_run = target_run;
 del build
@@ -781,3 +890,33 @@ def execute_process(
 
 serpent.execute_process = execute_process
 del execute_process
+
+
+
+
+serpent.option(
+   trigger     = "toolset",
+   value       = "v140",
+   description = "Visual Studio Toolset"
+)
+
+serpent.option(
+   trigger     = "workspace",
+   value       = "vs2015",
+   description = "Visual Studio"
+)
+
+visual_studio_version = serpent.map(
+	lambda x: dict(x)[serpent.triggers['workspace']],
+	data = [("vs2015", 2015), ("vs2017", 2017)]
+)
+
+visual_studio_internal = serpent.map(
+	lambda x: dict(x)[serpent.triggers['workspace']],
+	data = [("vs2015", 14),("vs2017", 15)]
+)
+
+visual_studio_toolset = serpent.map(
+	lambda x: dict(x)[serpent.triggers['workspace']],
+	data = [("vs2015", 'v140'),("vs2017", 'v141')]
+)

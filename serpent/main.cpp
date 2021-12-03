@@ -306,11 +306,10 @@ static PyObject* emb_option(PyObject *self, PyObject *args, PyObject *kwargs)
 
 static PyObject* emb_target(PyObject *self, PyObject *args, PyObject *kwargs)
 {
-    const char *trigger;
+  const char *trigger;
 	static char *kwlist[] = {"name", NULL};
     if (!PyArg_ParseTupleAndKeywords(args, kwargs, "s", kwlist, &trigger))
-        return Py_BuildValue("");
-		
+        return Py_BuildValue("");		
 	_targets.insert(std::string(trigger));
     return Py_BuildValue("");
 }
