@@ -80,9 +80,10 @@ serpent._WORKING_DIR			The current working directory
 
 ## Getting started
 
-This project currently is only available for windows, it uses python 2.7, so we are going to assume you have it installed somewhere. To build the environment from source we use the command `nmake PYTHON=C:\Python27\\` this will cause the command to compile a bootstap version of the environment and then use the real environment to furter compile itself with the command `env rebuild /t:serpent_project --python-sdk=C:\Python27`
+This project currently is only available for windows, it uses python 2.7, so we are going to assume you have it installed somewhere. To build the environment from source we use the command `nmake PYTHON=C:\Python27\\ TOOLSET=v110` this will cause the command to compile a bootstap version of the environment and then use the real environment to furter compile itself with the command `env rebuild /t:serpent_project --python-sdk=C:\Python27`. 
 
-From that point on the build environment can be used to compile the sample projects using `env build /t:sample_cpp && env run /t:sample_cpp`.
+From that point on the build environment can be used to compile the sample projects using `env build /t:sample_cpp && env run /t:sample_cpp`. To build with a different toolset you can use the option --toolset=v110 or any of the visual studio compatible 
+toolset v110 (2012), v120 (2013), v140 (2015)
 
 To help you get started to migrate your projects from traditional visual studio projects you can use the command-line `python msbuild/convert_project.py myproject.vcxproj` which will transform your project into serpents project definition. Likewise we also facilate the use of referencing externally managed projects as-is.
 
