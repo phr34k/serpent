@@ -37,6 +37,20 @@ serpent.option(
 )
 ```
 
+## Conditionals
+
+Declares a list of conditions that can be matched.
+
+```
+# Declares an option that can be set on the command line
+files = serpent.select( {
+	serpent.triggers['type'] == "1" : ['main_1.cpp'],
+	serpent.triggers['type'] == "2" : ['main_2.cpp'],
+	serpent.default : ['default.cpp'],
+   }
+)
+```
+
 ## Extensions
 
 Imports an etension this is similair to the import directive, in fact at the time of writing they are analogous, however this import 
