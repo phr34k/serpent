@@ -8,6 +8,7 @@ serpent.configuration = {}
 serpent._internal = {}
 serpent._configurations = ['Release']
 
+solutions = []
 Application=1
 DynamicLibrary=2
 StaticLibrary=3
@@ -29,6 +30,52 @@ class _project:
 		self.guid = guid
 		self.depends = depends
 		self.options = options
+
+class _condition:
+	def __init__(self, condition, **kwargs):
+		self.condition = condition
+		self.kwargs = kwargs
+
+class _solution:
+	def __init__(self, **kwargs):
+		self.kwargs = kwargs
+	def generate(self):
+		solution = self.kwargs.get('solution', None)
+		format = self.kwargs.get('format', 12), 
+		version = self.kwargs.get('version', 2012), 
+		projects = self.kwargs.get('projects', [])
+
+		solutiondir = os.path.dirname(solution)
+		if not os.path.exists(solutiondir): os.mkdir(solutiondir)
+		fobj = open(solution, 'w')
+		fobj.write("""Microsoft Visual Studio Solution File, Format Version %s.00\n\r""" % format);
+		fobj.write("""# Visual Studio %s\n\r""" % version);
+
+		for project in projects:
+			obj = serpent._internal[project]
+			relative_path = os.path.relpath(obj.project, solutiondir)
+			guid = None
+			if obj.project.endswith(".csproj"):
+				guid = "{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}";
+			elif obj.project.endswith(".vcxproj"):
+				guid = "{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}";			
+			fobj.write("""Project("%s") = "%s", "%s", "{%s}"\n\r""" % (guid, obj.name, relative_path, obj.guid));
+			fobj.write("""EndProject\n\r""");
+		fobj.close();
+
+
+def _msvc_to_runtime(runtime):
+	if runtime in ['StaticRuntime', 'DynamicRuntime', 'StaticDebugRuntime', 'DynamicDebugRuntime']:
+		index = ['StaticRuntime', 'DynamicRuntime', 'StaticDebugRuntime', 'DynamicDebugRuntime'].index(runtime)
+		mappings = ['MultiThreaded','MultiThreadedDLL','MultiThreadedDebug','MultiThreadedDebugDLL']
+		runtime = mappings[index]
+	elif runtime in ['/MT', '/MD', '/MTd', '/MDd']:
+		index = ['/MT', '/MD', '/MTd', '/MDd'].index(runtime)
+		mappings = ['MultiThreaded','MultiThreadedDLL','MultiThreadedDebug','MultiThreadedDebugDLL']
+		runtime = mappings[index]
+	else:
+		raise Exception("Runtime not expected")
+	return runtime
 
 class macro:
 	def __init__(self, value):
@@ -78,7 +125,9 @@ def cmake(name, project, folder, input, arguments = [], configuration = serpent.
 	serpent.target( name = name )
 	del _premake
 
-def visual_studio(project, files, name, deps = [], toolversion=serpent.default_toolversion, toolset=serpent.default_toolset, defines = [], includes = [], libs = [], compileopts = [], linkopts = [],  intdir='Intermediate\\', outdir='Release\\', resources=[], shared=Application, runtime = 'StaticRuntime', depends = [], configuration = serpent._configurations ):
+
+
+def visual_studio(project, files, name, deps = [], toolversion=serpent.default_toolversion, toolset=serpent.default_toolset, defines = [], includes = [], libs = [], compileopts = [], linkopts = [],  intdir='Intermediate\\', outdir='Release\\', resources=[], shared=Application, runtime = 'StaticRuntime', depends = [], configuration = serpent._configurations, condition = [] ):
 	project = os.path.abspath(project)
 	intdir = os.path.abspath(intdir)
 	outdir = os.path.abspath(outdir)
@@ -98,17 +147,22 @@ def visual_studio(project, files, name, deps = [], toolversion=serpent.default_t
 		if resources[x].startswith('./'):
 			resources[x] = os.path.relpath(resources[x], os.path.dirname(project))
 		elif serpent.path.isabs(resources[x]) == False:
-			resources[x] = os.path.relpath(resources[x], os.path.dirname(project))			
+			resources[x] = os.path.relpath(resources[x], os.path.dirname(project))
+	for x in range(len(libs)):
+		if libs[x].startswith(':'):
+			libs[x] = libs[x].replace(":","")
+		elif libs[x] == "":
+			continue
+		elif libs[x].startswith('./'):
+			libs[x] = os.path.relpath(libs[x], os.path.dirname(project))
+		elif serpent.path.isabs(libs[x]) == False:
+			libs[x] = os.path.relpath(libs[x], os.path.dirname(project))
+			print libs[x]
 
 	projdir = os.path.dirname(project)
 	serpent._internal[name] = _external(project, name, '380D6B49-C7EA-4F3A-8383-B50CAC3F054D', depends=depends, configurations = configuration )
+	runtime = _msvc_to_runtime(runtime)
 	
-	if runtime not in ['StaticRuntime', 'DynamicRuntime']:
-		raise Exception("Runtime not expected")
-	else:
-		index = ['StaticRuntime', 'DynamicRuntime'].index(runtime)
-		mappings = ['MultiThreaded','MultiThreadedDLL']
-		runtime = mappings[index]
 
 	if serpent.projects.get(name, None) != None:
 		raise Exception("Duplicate name")
@@ -151,10 +205,27 @@ def visual_studio(project, files, name, deps = [], toolversion=serpent.default_t
       <SubSystem>Console</SubSystem>
     </Link>    
   </ItemDefinitionGroup>    
-		""" %  (toolversion, toolset, _shared, outdir, intdir, _compileopts, ";".join(defines), ";".join(includes), runtime, _linkopts, ";".join(libs)))
+		""" %  (toolversion, toolset, _shared, outdir + '/', intdir + '/', _compileopts, ";".join(defines), ";".join(includes), runtime, _linkopts, ";".join(libs)))
 
-		fobj.write("""<ItemGroup>""")
+		for x in condition:
+			fobj.write("<PropertyGroup Condition=\"%s\">\n" % x.condition )
+			fobj.write("</PropertyGroup>\n")
+			fobj.write("<ItemDefinitionGroup Condition=\"%s\">\n" % x.condition )
+			fobj.write("<ClCompile>\n")
 
+			__runtime = x.kwargs.get('runtime', None)			
+			if __runtime is not None:
+				__runtime = _msvc_to_runtime(__runtime)
+				fobj.write("<RuntimeLibrary>%s</RuntimeLibrary>\n" % __runtime)
+			__compileopts = x.kwargs.get('compileopts', None)
+			if __compileopts is not None:
+				fobj.write("<AdditionalOptions>%s %%(AdditionalOptions)</AdditionalOptions>\n" % " ".join(__compileopts))
+			fobj.write("</ClCompile>\n")
+			fobj.write("<Link>\n")
+			fobj.write("</Link>\n")
+			fobj.write("</ItemDefinitionGroup>\n")
+
+		fobj.write("<ItemGroup>")
 		for x in configuration:
 			fobj.write("""
 	<ProjectConfiguration Include="%s|Win32">
@@ -162,8 +233,7 @@ def visual_studio(project, files, name, deps = [], toolversion=serpent.default_t
       <Platform>Win32</Platform>
     </ProjectConfiguration>
     		""" % (x,x))
-
-		fobj.write("""</ItemGroup>""")
+		fobj.write("</ItemGroup>")
 		fobj.write("""
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.default.props" />
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />			
@@ -321,24 +391,8 @@ def visual_studio_debug_options(project, executable = "", arguments = "", workin
 
 def visual_studio_solution(solution, format = 12, version = 2012, projects = []):
 	solution = os.path.abspath(solution);
-	solutiondir = os.path.dirname(solution)
-	if not os.path.exists(solutiondir): os.mkdir(solutiondir)		
-
-	fobj = open(solution, 'w')
-	fobj.write("""Microsoft Visual Studio Solution File, Format Version %s.00\n\r""" % format);
-	fobj.write("""# Visual Studio %s\n\r""" % version);
-
-	for project in projects:
-		obj = serpent._internal[project]
-		relative_path = os.path.relpath(obj.project, solutiondir)
-		guid = None
-		if obj.project.endswith(".csproj"):
-			guid = "{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}";
-		elif obj.project.endswith(".vcxproj"):
-			guid = "{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}";			
-		fobj.write("""Project("%s") = "%s", "%s", "{%s}"\n\r""" % (guid, obj.name, relative_path, obj.guid));
-		fobj.write("""EndProject\n\r""");
-	fobj.close();
+	v = _solution(solution=solution, format=format, version=version, projects=projects)
+	solutions.append(v)
 
 
 def msbuild(project, projects = []):
@@ -412,6 +466,8 @@ _build = serpent.build
 
 def build():
 	_build()
+
+	for x in solutions: x.generate()
 
 	if serpent.action == "cmake":
 		for y in serpent._targets:
