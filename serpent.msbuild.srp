@@ -146,6 +146,56 @@ def cmake(name, project, folder, input, arguments = [], configuration = serpent.
 def entity_replace(str):
 	return str.replace("<", "&lt;").replace(">", "&gt;")
 
+
+def visual_studio_filters(project, toolversion=serpent.default_toolversion, files = []):
+	project = os.path.abspath(project)
+	project = project + ".filters"
+	fobj = StringIO.StringIO()	
+	fobj.write('<?xml version="1.0" encoding="utf-8"?>')
+	fobj.write('<Project DefaultTargets="Build" ToolsVersion="%s" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">' % toolversion)
+  	fobj.write("""<ItemGroup>
+    <Filter Include="Source Files">
+      <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
+      <Extensions>cpp;c;cc;cxx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
+    </Filter>
+    <Filter Include="Header Files">
+      <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
+      <Extensions>h;hpp;hxx;hm;inl;inc;xsd</Extensions>
+    </Filter>
+    <Filter Include="Resource Files">
+      <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
+      <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav</Extensions>
+    </Filter>
+  </ItemGroup>""")
+
+	fobj.write("<ItemGroup>\n");
+	for x in files:
+		fobj.write("    <ClCompile Include=\"%s\">\n" % x);
+		fobj.write("    <Filter>Source Files</Filter>\n");
+		fobj.write("    </ClCompile>\n");	
+	fobj.write("</ItemGroup>\n");
+
+	fobj.write('</Project>')
+	
+	output_value = fobj.getvalue();
+	fobj.close();
+	del fobj
+
+	if os.path.isfile(project):
+		output_stream = open(project, 'r')
+		value = output_stream.read()
+		output_stream.close()
+		if value != output_value:
+			output_stream = open(project, 'w')
+			output_stream.write(output_value)
+			output_stream.close()
+	else:
+		output_stream = open(project, 'w')
+		output_stream.write(output_value)
+		output_stream.close()			
+	del output_value
+
+
 def visual_studio(project, files, name, deps = [], toolversion=serpent.default_toolversion, toolset=serpent.default_toolset, defines = [], includes = [], libs = [], libdirs = [], compileopts = [], linkopts = [],  intdir='Intermediate\\', outdir='Release\\', resources=[], shared=Application, runtime = 'StaticRuntime', depends = [], configuration = serpent._configurations, condition = [] ):
 	project = os.path.abspath(project)
 	intdir = os.path.abspath(intdir)
@@ -188,6 +238,7 @@ def visual_studio(project, files, name, deps = [], toolversion=serpent.default_t
 	projdir = os.path.dirname(project)
 	serpent._internal[name] = _external(project, name, '380D6B49-C7EA-4F3A-8383-B50CAC3F054D', depends=depends, configurations = configuration )
 	runtime = _msvc_to_runtime(runtime)
+	visual_studio_filters(project, toolversion=toolversion, files=files)
 	
 
 	if serpent.projects.get(name, None) != None:
@@ -233,6 +284,7 @@ def visual_studio(project, files, name, deps = [], toolversion=serpent.default_t
       <SubSystem>Console</SubSystem>
     </Link>    
   </ItemDefinitionGroup>    
+
 		""" %  (toolversion, toolset, _shared, outdir + '/', intdir + '/', _compileopts, ";".join(defines), ";".join(includes), runtime, ";".join(libdirs), _linkopts, ";".join(libs)))
 
 		for x in condition:
@@ -270,7 +322,8 @@ def visual_studio(project, files, name, deps = [], toolversion=serpent.default_t
 		fobj.write("<ItemGroup>\n");
 		for x in files:
 			fobj.write("    <ClCompile Include=\"%s\" />" % x);
-		fobj.write("</ItemGroup>\n");						
+			
+		fobj.write("</ItemGroup>\n");
 
 		fobj.write("<ItemGroup>\n");
 		for x in resources:			
