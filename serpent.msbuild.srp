@@ -966,3 +966,21 @@ def shortcut(link, target, description, working_dir, arguments=""):
 		oLink.WorkingDirectory = os.path.join(serpent._WORKING_DIR, working_dir)
 		oLink.Arguments = arguments
 		oLink.Save()
+
+
+def contents(file, contents=None, filename=None, variables=serpent.triggers):
+	from mako.template import Template
+
+	TheText = None
+	if filename is not None:
+		TheText = Template(filename=filename)
+	elif contents is not None:
+		TheText = Template(contents)		
+	FilledTemplate  = TheText.render(**variables)
+	f=open(file,"w")
+	f.write(FilledTemplate)
+	f.close()
+
+
+serpent.contents = contents
+del contents	

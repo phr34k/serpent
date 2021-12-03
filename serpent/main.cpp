@@ -875,7 +875,6 @@ int main(int argc, char** argv)
       options = PyDict_New();
       targets = PyList_New(0);
       platforms = PyList_New(0);
-      parse_argv(argv[lastKnownOption], argv + lastKnownOption + 1, argc - (lastKnownOption + 1), &workspaceFolder, &helpAction);
       
       obj = Py_InitModule("serpent", EmbMethods);
       PyObject_SetAttrString(obj, "content", Py_BuildValue("i", false));
@@ -889,8 +888,6 @@ int main(int argc, char** argv)
       PyObject_SetAttrString(obj, "_WORKING_DIR", Py_BuildValue("s",workingDirectory));
       PyObject_SetAttrString(obj, "_WORKING_ROOT", Py_BuildValue("s",workingDirectory));
       PyObject_SetAttrString(obj, "_SERPENT_LOG", _nolog == true ? Py_False : Py_True);
-      PyObject_SetAttrString(obj, "_SERPENT_WORKSPACE", Py_BuildValue("s",workspaceFolder));
-
       
       PyObject* serpent_dictionary = PyModule_GetDict(obj);
       PyDict_SetItemString(serpent_dictionary, "__builtins__", PyEval_GetBuiltins());
@@ -909,11 +906,18 @@ int main(int argc, char** argv)
       myfile2.close();
       if( cache.empty() == false )
       {
-        PyObject* pValue = PyRun_String(cache.c_str(), Py_file_input, serpent_dictionary, serpent_dictionary);
-        if (pValue == NULL) {
-           PyErr_Print();
-        }
-      }      
+          PyObject *pNewMod = PyModule_New("");
+          PyObject *pLocal = PyModule_GetDict(pNewMod);
+          PyDict_SetItemString(pLocal, "serpent", obj);
+          PyDict_SetItemString(pLocal, "__builtins__", PyEval_GetBuiltins());        
+          PyObject* pValue = PyRun_String(cache.c_str(), Py_file_input, pLocal, pLocal);
+          if (pValue == NULL) {
+              PyErr_Print();
+          }
+      }
+
+      parse_argv(argv[lastKnownOption], argv + lastKnownOption + 1, argc - (lastKnownOption + 1), &workspaceFolder, &helpAction);
+      PyObject_SetAttrString(obj, "_SERPENT_WORKSPACE", Py_BuildValue("s",workspaceFolder));      
 
       
       if( _debug )
