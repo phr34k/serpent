@@ -1,6 +1,7 @@
 
 PYTHON=C:\Python27\ 
 
+PYTHON_DLL=$(PYHON)python27.dll
 TARGET=bin\release\denv.exe
 CC=cl
 
@@ -19,6 +20,6 @@ $(TARGET):$(SOURCES)
         $(PYTHON)python.exe package.py > embed.cpp
         cd ..
         $(CC) -I$(PYTHON)include -DWINDOWS /Fointermediate\ /Fe$@ $** $(PYTHON)libs\python27.lib Shell32.lib
-        xcopy $(PYTHON)python27.dll bin\release\python27.dll
+        xcopy $(PYTHON_DLL) bin\release\python27.dll
         $(TARGET) rebuild /t:serpent_project --python-sdk=$(PYTHON)
         del $(TARGET)      
