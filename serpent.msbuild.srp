@@ -8,6 +8,12 @@ serpent.configuration = {}
 serpent._internal = {}
 serpent._configurations = ['Release']
 
+Application=1
+DynamicLibrary=2
+StaticLibrary=3
+
+
+
 class _external:
 	def __init__(self, project, name, guid, configurations = None, depends = None, options = []):
 		self.name = name
@@ -74,12 +80,16 @@ def cmake(name, project, folder, input, arguments = [], configuration = serpent.
 	serpent.target( name = name )
 	del _premake
 
-def visual_studio(project, files, name, deps = [], toolversion=serpent.default_toolversion, toolset=serpent.default_toolset, defines = [], includes = [], libs = [], compileopts = [], linkopts = [],  intdir='Intermediate\\', outdir='Release\\', resources=[], shared=False, runtime = 'StaticRuntime', depends = [] ):
+def visual_studio(project, files, name, deps = [], toolversion=serpent.default_toolversion, toolset=serpent.default_toolset, defines = [], includes = [], libs = [], compileopts = [], linkopts = [],  intdir='Intermediate\\', outdir='Release\\', resources=[], shared=Application, runtime = 'StaticRuntime', depends = [] ):
 	project = os.path.abspath(project)
 	intdir = os.path.abspath(intdir)
 	outdir = os.path.abspath(outdir)
 	intdir = os.path.relpath(intdir, os.path.dirname(project))
 	outdir = os.path.relpath(outdir, os.path.dirname(project))
+	for x in range(len(includes)):
+		if includes[x].startswith('./'):
+			includes[x] = os.path.relpath(includes[x], os.path.dirname(project))
+
 	projdir = os.path.dirname(project)
 	serpent._internal[name] = _external(project, name, '380D6B49-C7EA-4F3A-8383-B50CAC3F054D', depends=depends)
 	
@@ -98,8 +108,13 @@ def visual_studio(project, files, name, deps = [], toolversion=serpent.default_t
 
 	if serpent.action == "workspace" or serpent.action == "build" or serpent.action == "rebuild" or serpent.action == "clean":
 		_shared = "Application"
-		if shared == True:
+		if shared == Application:
+			_shared = "Application"
+		elif shared == DynamicLibrary:
 			_shared = "DynamicLibrary"
+		elif shared == StaticLibrary:
+			_shared = "StaticLibrary"
+
 		_compileopts = " ".join(compileopts);
 		_linkopts = " ".join(linkopts);
 		if not os.path.exists(os.path.dirname(project)): os.mkdir(os.path.dirname(project))
