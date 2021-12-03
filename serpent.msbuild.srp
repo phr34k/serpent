@@ -1,4 +1,4 @@
-import serpent, os, subprocess, ctypes, re, sys
+import serpent, os, subprocess, ctypes, re, sys, StringIO
 
 serpent.default_toolversion = '4.0'
 serpent.default_toolset = 'v110'
@@ -47,7 +47,7 @@ class _solution:
 
 		solutiondir = os.path.dirname(solution)
 		if not os.path.exists(solutiondir): os.mkdir(solutiondir)
-		fobj = open(solution, 'w')
+		fobj = StringIO.StringIO()
 		fobj.write("""Microsoft Visual Studio Solution File, Format Version %s.00\n\r""" % format);
 		fobj.write("""# Visual Studio %s\n\r""" % version);
 
@@ -61,7 +61,24 @@ class _solution:
 				guid = "{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}";			
 			fobj.write("""Project("%s") = "%s", "%s", "{%s}"\n\r""" % (guid, obj.name, relative_path, obj.guid));
 			fobj.write("""EndProject\n\r""");
+
+		output_value = fobj.getvalue();
 		fobj.close();
+		del fobj
+
+		output_stream = open(solution, 'r')
+		if output_stream is not None:
+			value = output_stream.read()
+			output_stream.close()
+			if value != output_value:
+				output_stream = open(solution, 'w')
+				output_stream.write(output_value)
+				output_stream.close()
+		else:
+			output_stream = open(solution, 'w')
+			output_stream.write(output_value)
+			output_stream.close()			
+		del output_value			
 
 
 def _msvc_to_runtime(runtime):
@@ -182,7 +199,8 @@ def visual_studio(project, files, name, deps = [], toolversion=serpent.default_t
 		_compileopts = " ".join(compileopts);
 		_linkopts = " ".join(linkopts);
 		if not os.path.exists(os.path.dirname(project)): os.mkdir(os.path.dirname(project))
-		fobj = open(project, 'w')
+
+		fobj = StringIO.StringIO()	
 		fobj.write("""
 <Project DefaultTargets="Build" ToolsVersion="%s" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <PropertyGroup>
@@ -253,7 +271,26 @@ def visual_studio(project, files, name, deps = [], toolversion=serpent.default_t
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Targets" />
 </Project>
 		""")
+	
+		output_value = fobj.getvalue();
 		fobj.close();
+		del fobj
+
+		output_stream = open(project, 'r')
+		if output_stream is not None:
+			value = output_stream.read()
+			output_stream.close()
+			if value != output_value:
+				output_stream = open(project, 'w')
+				output_stream.write(output_value)
+				output_stream.close()
+		else:
+			output_stream = open(project, 'w')
+			output_stream.write(output_value)
+			output_stream.close()			
+		del output_value
+
+		
 
 def qt_project(project, files, name, deps = [], toolversion=serpent.default_toolversion, toolset=serpent.default_toolset, defines = [], includes = [], libs = [], compileopts = [], linkopts = [],  intdir='Intermediate\\', outdir='Release\\', uifiles = [], uiheaders = [], uiresource = [], resources = [], depends = []):
 	project = os.path.abspath(project)
@@ -278,7 +315,7 @@ def qt_project(project, files, name, deps = [], toolversion=serpent.default_tool
 		_linkopts = " ".join(linkopts);
 		includes = [x.replace('\\', '\\\\') for x in includes]
 		if not os.path.exists(os.path.dirname(project)): os.mkdir(os.path.dirname(project))
-		fobj = open(project, 'w')
+		fobj = StringIO.StringIO()
 		fobj.write("""
 <Project DefaultTargets="Build" ToolsVersion="%s" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <PropertyGroup>
@@ -358,7 +395,24 @@ def qt_project(project, files, name, deps = [], toolversion=serpent.default_tool
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Targets" />
 </Project>
 		""")
+
+		output_value = fobj.getvalue();
 		fobj.close();
+		del fobj
+
+		output_stream = open(project, 'r')
+		if output_stream is not None:
+			value = output_stream.read()
+			output_stream.close()
+			if value != output_value:
+				output_stream = open(project, 'w')
+				output_stream.write(output_value)
+				output_stream.close()
+		else:
+			output_stream = open(project, 'w')
+			output_stream.write(output_value)
+			output_stream.close()			
+		del output_value
 
 def visual_studio_debug_options(project, executable = "", arguments = "", workingdir = ""):
 	project = os.path.abspath(project);
@@ -461,13 +515,35 @@ def msbuild(project, projects = []):
 		fobj.write("""</Project>""")
 		fobj.close();
 
+def test(project):
+	if not os.path.exists(os.path.dirname(project)): os.mkdir(os.path.dirname(project))
+	fobj = open(project, 'w')
+	fobj.write("<Project xmlns=\"http://schemas.microsoft.com/developer/msbuild/2003\">\n")
+	fobj.write("<PropertyGroup>\n")
+	for x in serpent.triggers:
+		fobj.write("<%s>%s</%s>\n" % (x,serpent.triggers[x],x))
+	fobj.write("</PropertyGroup>\n")
+	fobj.write("</Project>")	
+	fobj.close()
+
 
 _build = serpent.build		
+
+
+def union_targets():
+	p = set(serpent._targets)
+	if "*" in serpent._targets:			
+		for x in serpent._internal: p.add(x)
+		serpent._targets = list(p)
+	else:
+		for y in serpent._targets:
+			if y in serpent._internal: y=serpent._internal[y]; serpent._targets = list(set(serpent._targets) | set(y.depends or []))
 
 def build():
 	_build()
 
 	for x in solutions: x.generate()
+
 
 	if serpent.action == "cmake":
 		for y in serpent._targets:
@@ -475,32 +551,31 @@ def build():
 			serpent._targets = list(set(serpent._targets) | set(y.depends))		
 		for x in serpent._premake: x()
 	if serpent.action == "build":		
-		p = set(serpent._targets)
-		if "*" in serpent._targets:			
-			for x in serpent._internal: p.add(x)
-			serpent._targets = list(p)
-		else:
-			for y in serpent._targets:
-				if y in serpent._internal: y=serpent._internal[y]; serpent._targets = list(set(serpent._targets) | set(y.depends or []))
+		union_targets()
 		for x in serpent._premake: x()
+		test("msvc/common.props")
 		msbuild(project = "msvc/common.msproj", projects = serpent._targets)
 		exit_code = subprocess.call(['msbuild', 'msvc/common.msproj', '/t:Build', '/p:Platform=Win32', '/p:ADK_PATH=E:\\Workspaces\\Import', '/verbosity:m',
-		'/flp:Summary;Verbosity=minimal;LogFile=BUILD_SUMMARY', '/flp1:warningsonly;logfile=BUILD_WARNINGS', '/flp2:errorsonly;logfile=BUILD_ERRORS', '/maxcpucount:4'])
+		'/flp:Summary;Verbosity=minimal;LogFile=.srp/BUILD_SUMMARY', '/flp1:warningsonly;logfile=.srp/BUILD_WARNINGS', '/flp2:errorsonly;logfile=.srp/BUILD_ERRORS', '/maxcpucount:4'])
 		sys.exit(exit_code);
 	if serpent.action == "rebuild":
+		union_targets()
 		for y in serpent._targets:
 			if y in serpent._internal: y=serpent._internal[y]; serpent._targets = list(set(serpent._targets) | set(y.depends or []))
 		for x in serpent._premake: x()
+		test("msvc/common.props")
 		msbuild(project = "msvc/common.msproj", projects = serpent._targets)
 		exit_code = subprocess.call(['msbuild', 'msvc/common.msproj', '/t:Rebuild', '/p:Platform=Win32', '/p:ADK_PATH=E:\\Workspaces\\Import', '/verbosity:m',
-		'/flp:Summary;Verbosity=minimal;LogFile=BUILD_SUMMARY', '/flp1:warningsonly;logfile=BUILD_WARNINGS', '/flp2:errorsonly;logfile=BUILD_ERRORS', '/maxcpucount:4'])
+		'/flp:Summary;Verbosity=minimal;LogFile=.srp/BUILD_SUMMARY', '/flp1:warningsonly;logfile=.srp/BUILD_WARNINGS', '/flp2:errorsonly;logfile=.srp/BUILD_ERRORS', '/maxcpucount:4'])
 		sys.exit(exit_code);
 	if serpent.action == "clean":
+		union_targets()
 		for y in serpent._targets:
 			if y in serpent._internal: y=serpent._internal[y]; serpent._targets = list(set(serpent._targets) | set(y.depends or []))
 		for x in serpent._premake: x()
+		test("msvc/common.props")
 		msbuild(project = "msvc/common.msproj", projects = serpent._targets)
-		exit_code = subprocess.call(['msbuild', 'msvc/common.msproj', '/t:Clean', '/p:Platform=Win32', '/p:ADK_PATH=E:\\Workspaces\\Import', '/verbosity:m', '/flp:Summary;Verbosity=minimal;LogFile=BUILD_SUMMARY', '/flp1:warningsonly;logfile=BUILD_WARNINGS', '/flp2:errorsonly;logfile=BUILD_ERRORS', '/maxcpucount:4'])
+		exit_code = subprocess.call(['msbuild', 'msvc/common.msproj', '/t:Clean', '/p:Platform=Win32', '/p:ADK_PATH=E:\\Workspaces\\Import', '/verbosity:m', '/flp:Summary;Verbosity=minimal;LogFile=.srp/BUILD_SUMMARY', '/flp1:warningsonly;logfile=.srp/BUILD_WARNINGS', '/flp2:errorsonly;logfile=.srp/BUILD_ERRORS', '/maxcpucount:4'])
 		sys.exit(exit_code);
 
 def target_run():
