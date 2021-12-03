@@ -1,0 +1,37 @@
+import os
+
+serpent.option(
+   trigger     = "python-sdk",
+   value       = "C:\\Python27-Clean",
+   description = "Python sdk location"
+)
+
+msbuild_ext = serpent.load('BUILDENV.MSBUILD.SRP');
+
+msbuild_ext.visual_studio(
+	project = "msvc/env.project",
+	files = serpent.glob(['Serpent/*.cpp']),
+	resources = serpent.glob(['Serpent/*.rc']),
+	name = 'serpent_project',
+	defines = ['AAAA'],
+	outdir = 'Bin/Release/',
+	intdir = 'Intermediate/env/',
+	includes = [os.path.join(serpent.triggers['python-sdk'], 'include')],
+	libs = [os.path.join(serpent.triggers['python-sdk'], 'libs/python27.lib')]
+)
+
+@serpent.prebuild
+def run():
+	print "Error: 1"
+	print "Error: 1"
+	print "Error: 1"
+	print "Warning: 1"
+	print "Warning: 1"
+
+@serpent.postbuild
+def run():
+	print "Error: 1"
+	print "Error: 1"
+	print "Error: 1"
+	print "Warning: 1"
+	print "Warning: 1"
