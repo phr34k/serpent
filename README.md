@@ -32,7 +32,7 @@ serpent.option(
 )
 
 # Loads an extension module in which freeform python can be executed 
-msbuild_ext = serpent.load('BUILDENV.MSBUILD.SRP');
+msbuild_ext = serpent.load('https://raw.githubusercontent.com/phr34k/serpent/master/serpent.msbuild.srp') or serpent.load('serpent.msbuild.srp');
 
 # Generates a Visual C++ project
 msbuild_ext.visual_studio(
@@ -66,6 +66,10 @@ msbuild_ext.visual_studio_solution(
 # Loads the partial build script from a subfolder, the triggers and optiones declared will be listed.
 serpent.include('samples/cpp/BUILDENV')
 ```
+
+## Build packages
+
+By default serpent creates a directory under the users home directory i.e. %USERPROFILE%/.srp/ following the same conventions of populair tools. The .srp directory is used to user configured properties as well as a repository where build definitions can be downloaded. In the future this mechanism will be used to resolve definitions from the internet as illustrated in the above example.
 
 ## Internals
 
