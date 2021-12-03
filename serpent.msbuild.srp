@@ -4,12 +4,23 @@ serpent.projects = {}
 serpent.outdirs = {}
 serpent.configuration = {}
 serpent._internal = {}
+serpent._configurations = ['Release']
 
 class _external:
-	def __init__(self, project, name, guid):
+	def __init__(self, project, name, guid, configurations = None, depends = None):
 		self.name = name
 		self.project = project
+		self.configurations = configurations
 		self.guid = guid
+		self.depends = depends
+
+class _project:
+	def __init__(self, project, name, guid, configurations = None, depends = None):
+		self.name = name
+		self.project = project
+		self.configurations = configurations
+		self.guid = guid
+		self.depends = depends
 
 class macro:
 	def __init__(self, value):
@@ -17,14 +28,14 @@ class macro:
 	def __str__(self):
 		return self.value
 
-def external(project, name, configuration = None ):
+def external(project, name, configuration = serpent._configurations, depends = [] ):
 	if not os.path.exists(project):
 		raise Exception("Path %s does not exists" % project )
 	if serpent.projects.get(name, None) != None:
 		raise Exception("Duplicate name")
 	serpent.projects[name] = project;
-	if configuration is not None:
-		serpent.configuration[name] = configuration
+	# if configuration is not None:
+	#	serpent.configuration[name] = configuration
 	serpent.target( name = name )
 
 	f = open(project, 'r')
@@ -35,27 +46,31 @@ def external(project, name, configuration = None ):
 	match = re.search("\<ProjectGuid\>\{([A-Za-z0-9\-]+)\}\<\/ProjectGuid\>", content)
 	if match is not None:
 		guid = match.groups(1)[0]
-	serpent._internal[name] = _external(project, name, guid)
+	serpent._internal[name] = _external(project, name, guid, configuration, depends)
 	del content
 	del match
 
 
-def cmake(name, project, folder, input):
+def cmake(name, project, folder, input, arguments = [], configuration = serpent._configurations):
 	relative_input = os.path.relpath(input, folder)
 	if not os.path.exists(folder): os.makedirs(folder)
 	if not os.path.exists(input):
 		raise Exception("Input folder does not exists")	
 	def _premake():
-		if name in serpent._targets: subprocess.call(["C:\\Program Files (x86)\\CMake\\bin\\cmake.exe", relative_input], cwd=folder)
-		external(name = name, project = project )
+		print serpent._targets
+		if name in serpent._targets:
+			output = subprocess.call(["C:\\Program Files (x86)\\CMake\\bin\\cmake.exe", relative_input] + arguments, cwd=folder)
+		external(name = name, project = project, configuration = configuration )
 	serpent._premake.append(_premake)
+	serpent.target( name = name )
+	del _premake
 
-def visual_studio(project, files, name, deps = [], toolset='v110', defines = [], includes = [], libs = [], compileopts = [], linkopts = [],  intdir='Intermediate\\', outdir='Release\\', resources=[], shared=False, runtime = 'StaticRuntime' ):
+def visual_studio(project, files, name, deps = [], toolset='v110', defines = [], includes = [], libs = [], compileopts = [], linkopts = [],  intdir='Intermediate\\', outdir='Release\\', resources=[], shared=False, runtime = 'StaticRuntime', depends = [] ):
 
 	intdir = os.path.relpath(intdir, os.path.dirname(project))
 	outdir = os.path.relpath(outdir, os.path.dirname(project))
 	projdir = os.path.dirname(project)
-	serpent._internal[name] = _external(project, name, '380D6B49-C7EA-4F3A-8383-B50CAC3F054D')
+	serpent._internal[name] = _external(project, name, '380D6B49-C7EA-4F3A-8383-B50CAC3F054D', depends=depends)
 	
 	if runtime not in ['StaticRuntime', 'DynamicRuntime']:
 		raise Exception("Runtime not expected")
@@ -127,7 +142,7 @@ def visual_studio(project, files, name, deps = [], toolset='v110', defines = [],
 		""")
 		fobj.close();
 
-def qt_project(project, files, name, deps = [], toolset='v110', defines = [], includes = [], libs = [], compileopts = [], linkopts = [],  intdir='Intermediate\\', outdir='Release\\', uifiles = [], uiheaders = [], uiresource = [], resources = [] ):
+def qt_project(project, files, name, deps = [], toolset='v110', defines = [], includes = [], libs = [], compileopts = [], linkopts = [],  intdir='Intermediate\\', outdir='Release\\', uifiles = [], uiheaders = [], uiresource = [], resources = [], depends = []):
 	if serpent.projects.get(name, None) != None:
 		raise Exception("Duplicate name")
 
@@ -138,7 +153,7 @@ def qt_project(project, files, name, deps = [], toolset='v110', defines = [], in
 	serpent.projects[name] = os.path.abspath(project);
 	serpent.outdirs[name] = outdir;
 	serpent.target( name = name )
-	serpent._internal[name] = _external(project, name, '380D6B49-C7EA-4F3A-8383-B50CAC3F054D')
+	serpent._internal[name] = _external(project, name, '380D6B49-C7EA-4F3A-8383-B50CAC3F054D', depends=depends)
 
 	if serpent.action == "workspace" or serpent.action == "build" or serpent.action == "rebuild" or serpent.action == "clean":
 
@@ -282,20 +297,28 @@ def msbuild(project, projects = []):
 	if not os.path.exists(os.path.dirname(project)):
 		raise Exception("Path does not exists")
 	if serpent.action == "workspace" or serpent.action == "build" or serpent.action == "rebuild" or serpent.action == "clean":		
+
+		'''
+		for x in projects:
+			name = x
+			x = serpent.projects.get(x, None);
+			if x is None:
+				raise Exception("Project '%s' does not exists" % name)			
+		'''
+
 		if not os.path.exists(os.path.dirname(project)): os.mkdir(os.path.dirname(project))
 		fobj = open(project, 'w')
 		fobj.write("""
 		<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
 		    <ItemGroup>\n
 		""")
-		for x in projects:
-			configuration = serpent.configuration.get(x, 'Release')
-			x = serpent.projects.get(x, None);				
-
+		for x in reversed(projects):
+			x = serpent._internal.get(x, None);
 			if x is not None:
-				fobj.write("    <ProjectToBuild Include=\"%s\">\n" % os.path.relpath(x, os.path.basename(project)));
-				fobj.write("    <AdditionalProperties>Configuration=%s</AdditionalProperties>\n" % configuration)
-				fobj.write("    </ProjectToBuild>\n")
+				for y in x.configurations or serpent._configurations:			
+					fobj.write("    <ProjectToBuild Include=\"%s\">\n" % os.path.relpath(x.project, os.path.basename(project)));
+					fobj.write("    <AdditionalProperties>Configuration=%s</AdditionalProperties>\n" % y)
+					fobj.write("    </ProjectToBuild>\n")
 
 		fobj.write("""
 		    </ItemGroup>""")
@@ -347,21 +370,32 @@ def build():
 	if serpent.action == "postbuild":
 		for x in serpent._postbuild:
 			x()
+
+	if serpent.action == "cmake":
+		for y in serpent._targets:
+			if y in serpent._internal: y=serpent._internal[y]
+			serpent._targets = list(set(serpent._targets) | set(y.depends))		
+		for x in serpent._premake: x()
 	if serpent.action == "build":
+		for y in serpent._targets:
+			if y in serpent._internal: y=serpent._internal[y]; serpent._targets = list(set(serpent._targets) | set(y.depends or []))
+		for x in serpent._premake: x()
 		msbuild(project = "msvc/common.msproj", projects = serpent._targets)
-		subprocess.call(['C:/Windows/Microsoft.NET/Framework/v4.0.30319/msbuild.exe', 'msvc/common.msproj', '/t:Build', '/p:ADK_PATH=E:\\Workspaces\\Import', '/verbosity:m',
+		subprocess.call(['C:/Windows/Microsoft.NET/Framework/v4.0.30319/msbuild.exe', 'msvc/common.msproj', '/t:Build', '/p:Platform=Win32', '/p:ADK_PATH=E:\\Workspaces\\Import', '/verbosity:m',
 		'/flp:Summary;Verbosity=minimal;LogFile=BUILD_SUMMARY', '/flp1:warningsonly;logfile=BUILD_WARNINGS', '/flp2:errorsonly;logfile=BUILD_ERRORS', '/maxcpucount:4'])
 	if serpent.action == "rebuild":
-		for x in serpent._premake:
-			x()
+		for y in serpent._targets:
+			if y in serpent._internal: y=serpent._internal[y]; serpent._targets = list(set(serpent._targets) | set(y.depends or []))
+		for x in serpent._premake: x()
 		msbuild(project = "msvc/common.msproj", projects = serpent._targets)
-		subprocess.call(['C:/Windows/Microsoft.NET/Framework/v4.0.30319/msbuild.exe', 'msvc/common.msproj', '/t:Rebuild', '/p:ADK_PATH=E:\\Workspaces\\Import', '/verbosity:m',
+		subprocess.call(['C:/Windows/Microsoft.NET/Framework/v4.0.30319/msbuild.exe', 'msvc/common.msproj', '/t:Rebuild', '/p:Platform=Win32', '/p:ADK_PATH=E:\\Workspaces\\Import', '/verbosity:m',
 		'/flp:Summary;Verbosity=minimal;LogFile=BUILD_SUMMARY', '/flp1:warningsonly;logfile=BUILD_WARNINGS', '/flp2:errorsonly;logfile=BUILD_ERRORS', '/maxcpucount:4'])
 	if serpent.action == "clean":
-		for x in serpent._premake:
-			x()
+		for y in serpent._targets:
+			if y in serpent._internal: y=serpent._internal[y]; serpent._targets = list(set(serpent._targets) | set(y.depends or []))
+		for x in serpent._premake: x()
 		msbuild(project = "msvc/common.msproj", projects = serpent._targets)
-		subprocess.call(['C:/Windows/Microsoft.NET/Framework/v4.0.30319/msbuild.exe', 'msvc/common.msproj', '/t:Clean', '/p:ADK_PATH=E:\\Workspaces\\Import', '/verbosity:m', '/flp:Summary;Verbosity=minimal;LogFile=BUILD_SUMMARY', '/flp1:warningsonly;logfile=BUILD_WARNINGS', '/flp2:errorsonly;logfile=BUILD_ERRORS', '/maxcpucount:4'])
+		subprocess.call(['C:/Windows/Microsoft.NET/Framework/v4.0.30319/msbuild.exe', 'msvc/common.msproj', '/t:Clean', '/p:Platform=Win32', '/p:ADK_PATH=E:\\Workspaces\\Import', '/verbosity:m', '/flp:Summary;Verbosity=minimal;LogFile=BUILD_SUMMARY', '/flp1:warningsonly;logfile=BUILD_WARNINGS', '/flp2:errorsonly;logfile=BUILD_ERRORS', '/maxcpucount:4'])
 	if serpent.action == "run":
 		print ""
 		for x in serpent._targets:
