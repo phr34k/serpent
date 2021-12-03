@@ -97,7 +97,7 @@ msbuild_ext.visual_studio(
 )
 ```
 
-## Project generation via MSBuild Extension
+## User properties generation via MSBuild Extension
 
 Generates a Visual Studio Project User File, only vcxproj.user are supported, targetting Visual Studio 2010 and onwards.
 
@@ -111,7 +111,7 @@ msbuild_ext.visual_studio_debug_options(
 )
 ```
 
-## Project generation via MSBuild Extension
+## Solution generation via MSBuild Extension
 
 Generates a Visual Studio Solution from named projects.
 
