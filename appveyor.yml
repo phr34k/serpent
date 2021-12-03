@@ -5,6 +5,8 @@ environment:
       PYTHON_VERSION: "2.7.x" # currently 2.7.9
       PYTHON_ARCH: "32"
       PYTHON_DLL: "C:\\Windows\\SysWOW64\\python27.dll"      
+      PYTHONPATH: "C:\\Python27\\Lib"
+      PYTHONHOME: "C:\\Python27\\"
 
 install:
   "\"C:\\Program Files\\Microsoft SDKs\\Windows\\v7.1\\Bin\\SetEnv.cmd\" /x86"
