@@ -10,6 +10,67 @@
 #include <direct.h>
 #ifdef WINDOWS
 #include <windows.h>
+#ifdef HAVE_JUNCTIONS
+//#include "reparselib.h"
+
+
+#define REPARSE_MOUNTPOINT_HEADER_SIZE   8
+
+typedef struct {
+  DWORD ReparseTag;
+  DWORD ReparseDataLength;
+  WORD Reserved;
+  WORD ReparseTargetLength;
+  WORD ReparseTargetMaximumLength;
+  WORD Reserved1;
+  WCHAR ReparseTarget[1];
+} REPARSE_MOUNTPOINT_DATA_BUFFER, *PREPARSE_MOUNTPOINT_DATA_BUFFER;
+
+static void CreateJunction(LPCSTR szJunction, LPCSTR szPath) {
+  BYTE buf[sizeof(REPARSE_MOUNTPOINT_DATA_BUFFER) + MAX_PATH * sizeof(WCHAR)];
+  REPARSE_MOUNTPOINT_DATA_BUFFER& ReparseBuffer = (REPARSE_MOUNTPOINT_DATA_BUFFER&)buf;
+  char szTarget[MAX_PATH] = "\\??\\";
+
+  strcat(szTarget, szPath);
+  strcat(szTarget, "\\");
+
+  if (!::CreateDirectory(szJunction, NULL)) throw ::GetLastError();
+
+  // Obtain SE_RESTORE_NAME privilege (required for opening a directory)
+  HANDLE hToken = NULL;
+  TOKEN_PRIVILEGES tp;
+  try {
+    if (!::OpenProcessToken(::GetCurrentProcess(), TOKEN_ADJUST_PRIVILEGES, &hToken)) throw ::GetLastError();
+    if (!::LookupPrivilegeValue(NULL, SE_RESTORE_NAME, &tp.Privileges[0].Luid))  throw ::GetLastError();
+    tp.PrivilegeCount = 1;
+    tp.Privileges[0].Attributes = SE_PRIVILEGE_ENABLED;
+    if (!::AdjustTokenPrivileges(hToken, FALSE, &tp, sizeof(TOKEN_PRIVILEGES), NULL, NULL))  throw ::GetLastError();
+  }
+  catch (DWORD) { }   // Ignore errors
+  if (hToken) ::CloseHandle(hToken);
+
+  HANDLE hDir = ::CreateFile(szJunction, GENERIC_WRITE, 0, NULL, OPEN_EXISTING, FILE_FLAG_OPEN_REPARSE_POINT | FILE_FLAG_BACKUP_SEMANTICS, NULL);
+  if (hDir == INVALID_HANDLE_VALUE) throw ::GetLastError();
+
+  memset(buf, 0, sizeof(buf));
+  ReparseBuffer.ReparseTag = IO_REPARSE_TAG_MOUNT_POINT;
+  int len = ::MultiByteToWideChar(CP_ACP, 0, szTarget, -1, ReparseBuffer.ReparseTarget, MAX_PATH);
+  ReparseBuffer.ReparseTargetMaximumLength = (len--) * sizeof(WCHAR);
+  ReparseBuffer.ReparseTargetLength = len * sizeof(WCHAR);
+  ReparseBuffer.ReparseDataLength = ReparseBuffer.ReparseTargetLength + 12;
+
+  DWORD dwRet;
+  if (!::DeviceIoControl(hDir, FSCTL_SET_REPARSE_POINT, &ReparseBuffer, ReparseBuffer.ReparseDataLength+REPARSE_MOUNTPOINT_HEADER_SIZE, NULL, 0, &dwRet, NULL)) {
+    DWORD dr = ::GetLastError();
+    ::CloseHandle(hDir);
+    ::RemoveDirectory(szJunction);
+    throw dr;
+  }
+
+  ::CloseHandle(hDir);
+} // CreateJunction
+
+#endif
 #else //WINDOWS
 #error
 #endif
@@ -17,6 +78,8 @@
 #ifdef HAVE_CURL
 #include "curl/curl.h"
 #endif 
+
+
 
 std::string userdir = "";
 std::string file = "BUILDENV";
@@ -250,12 +313,43 @@ static PyObject* emb_glob(PyObject *self, PyObject *args, PyObject *kwargs)
 }
 
 
+#ifdef HAVE_JUNCTIONS
+static PyObject* emb_junction(PyObject *self, PyObject *args)
+{
+    const char *source, *destination;
+    if (!PyArg_ParseTuple(args, "ss", &source, &destination))
+        return Py_BuildValue("");
+	
+	char abspath1[4096], abspath2[4096];
+	_fullpath(abspath1, source, 4096);
+	_fullpath(abspath2, destination, 4096);
 
+	::RemoveDirectory(source);
+	//::CreateDirectory(source, NULL);
 
+    LPSTR pszName;
+	const char* dest = abspath2;
+    char szPath[MAX_PATH], szLink[MAX_PATH];
+    strcpy(szLink, dest);
+    int len = strlen(szLink);
+    if (szLink[len-1] == '\\') szLink[--len] = '\0';  // Remove trailing backslash
+    if (!::GetFullPathName(abspath1, MAX_PATH, szPath, &pszName)) throw ::GetLastError();
+    len = strlen(szPath);
+	if (szPath[len-1] == '\\') szPath[--len] = '\0';  // Remove trailing backslash
+	try {
+		CreateJunction(szPath,szLink);
+	} catch(...) {
 
+	}	
+
+    return Py_BuildValue("");
+}
+#endif
 
 static PyObject* emb_run(PyObject *self, PyObject *args)
 {
+
+
     const char *command;
     if (!PyArg_ParseTuple(args, "s", &command))
         return Py_BuildValue("");
@@ -275,6 +369,24 @@ static PyObject* emb_run(PyObject *self, PyObject *args)
 		char workingDirectory[2048];
 		_getcwd(workingDirectory, 2048);
 		SetCurrentDirectoryA(dir.c_str());
+
+		#ifdef HAVE_JUNCTIONS
+	    LPSTR pszName;
+		const char* source = userdir.c_str();
+		const char* dest = "./.srp/";
+	    char szPath[MAX_PATH], szLink[MAX_PATH];
+	    strcpy(szLink, dest);
+	    int len = strlen(szLink);
+	    if (szLink[len-1] == '\\') szLink[--len] = '\0';  // Remove trailing backslash
+	    if (!::GetFullPathName(source, MAX_PATH, szPath, &pszName)) throw ::GetLastError();
+	    len = strlen(szPath);
+		if (szPath[len-1] == '\\') szPath[--len] = '\0';  // Remove trailing backslash
+		try {
+			CreateJunction(szLink, szPath);
+		} catch(...) {
+
+		}
+		#endif
 
 		PyObject* script = PyObject_GetAttrString(obj, "_SERPENT_SCRIPT");
 		PyObject_SetAttrString(obj, "_SERPENT_SCRIPT", Py_BuildValue("s",command));
@@ -312,6 +424,9 @@ static PyMethodDef EmbMethods[] = {
     {"info", (PyCFunction)emb_info, METH_VARARGS},
 	{"glob", (PyCFunction)emb_glob, METH_VARARGS | METH_KEYWORDS},
 	{"include", (PyCFunction)emb_run, METH_VARARGS},	
+	#ifdef HAVE_JUNCTIONS
+	{"junction", (PyCFunction)emb_junction, METH_VARARGS},	
+	#endif 	
     {NULL, NULL, 0, NULL}
 };
 
@@ -465,6 +580,9 @@ int main(int argc, char** argv)
 	userdir = get_environment_var();
 	userdir.append("/.srp/");
 	CreateDirectory(userdir.c_str(), false);
+
+
+ 
 
 
 	#ifdef HAVE_CURL	
