@@ -40,10 +40,10 @@ $(TARGET):$(SOURCES)
 	-mkdir bin
 	-mkdir bin\release
 	-mkdir intermediate
-        -del .srp-workarea\bin\release\env.exe /q      	
-        -del .srp-workarea\bin\release\denv.exe /q      	
-        -del .srp-workarea\intermediate\*.obj /q	
-        $(PYTHON)\python.exe -c $(PYTHONLOCATE)
+        -del .srp-workarea\bin\release\env.exe /q >nul 2>&1    	
+        -del .srp-workarea\bin\release\denv.exe /q >nul 2>&1     	
+        -del .srp-workarea\intermediate\*.obj /q >nul 2>&1	
+
         cd serpent
         $(PYTHON)python.exe package.py > embed.cpp
         cd ..
@@ -53,12 +53,13 @@ $(TARGET):$(SOURCES)
 
         -$(TARGET) rebuild /t:serpent_project /f:BUILDENV~ --python-sdk=$(PYTHON) --toolset=$(TOOLSET)
         del $(TARGET)              
+        $(PYTHON)\python.exe -c $(PYTHONLOCATE)        
 
-        -del intermediate\*.obj /q
-        -del bin\release\denv.exe /q      
-        -rmdir intermediate /S /Q               
-        -rmdir bin\release /S /Q        
-        -rmdir bin /S /Q
+        -del intermediate\*.obj /q >nul 2>&1         
+        -del bin\release\denv.exe /q >nul 2>&1      
+        -rmdir intermediate /S /Q >nul 2>&1               
+        -rmdir bin\release /S /Q >nul 2>&1
+        -rmdir bin /S /Q >nul 2>&1
 
         -$(TARGET2) rebuild /t:* /f:BUILDENV --python-sdk=$(PYTHON) --toolset=$(TOOLSET) /nolog
         -copy $(TARGET2) .srp\.bin\srp.exe
