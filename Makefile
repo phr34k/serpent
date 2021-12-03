@@ -18,7 +18,7 @@ $(TARGET):$(SOURCES)
         cd serpent
         $(PYTHON)python.exe package.py > embed.cpp
         cd ..
-        $(CC) -I$(PYTHON)\include -DWINDOWS /Fointermediate\ /Fe$@ $** $(PYTHON)\libs\python27.lib Shell32.lib
+        $(CC) -I$(PYTHON)include -DWINDOWS /Fointermediate\ /Fe$@ $** $(PYTHON)libs\python27.lib Shell32.lib
         xcopy $(PYTHON)python27.dll bin\release\python27.dll
         $(TARGET) rebuild /t:serpent_project --python-sdk=$(PYTHON)
         del $(TARGET)      
