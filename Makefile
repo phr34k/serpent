@@ -10,7 +10,8 @@ CC=cl
 SOURCES = \
 	serpent/embed.cpp \
         serpent/FileGlobBase.cpp \
-        serpent/main.cpp
+        serpent/main.cpp \
+        serpent/sha256.cpp
 
 all: $(TARGET)
 
@@ -27,6 +28,7 @@ embed:
 		cd ..        
 
 install_modules:
+	    -copy .srp\modules\serpent.msbuild.srp .
         -copy serpent.msbuild.srp .srp\modules
         -copy bin\release\env.exe .srp\.bin\srp.exe
 
@@ -44,6 +46,7 @@ $(TARGET):$(SOURCES)
         $(PYTHON)python.exe package.py > embed.cpp
         cd ..
         $(CC) -I$(PYTHON)include -DWINDOWS -DHAVE_JUNCTIONS /Fointermediate\ /Fe$@ $** $(PYTHON)libs\python27.lib Shell32.lib Rpcrt4.lib Ole32.lib Advapi32.lib
+	    -copy .srp\modules\serpent.msbuild.srp .        
         -copy serpent.msbuild.srp .srp\modules               
         -$(TARGET) rebuild /t:serpent_project /f:BUILDENV~ --python-sdk=$(PYTHON) --toolset=$(TOOLSET) /nolog
         del $(TARGET)              

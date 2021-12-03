@@ -1,9 +1,13 @@
 #include <Python.h>
-#include <string>
-#include <fstream>
+#include <string>       // std::string
+#include <iostream>     // std::cout
 #include <streambuf>
+#include <sstream>      // std::stringstream
+#include <fstream>
+#include <iomanip>
 #include "FileGlobBase.h"
 #include "FileGlobList.h"
+#include "sha256.h"
 #include <map>
 #include <set>
 #include <functional>
@@ -84,6 +88,7 @@ std::string userdir = "";
 std::string bindir = "";
 std::string packagesdir = "";
 std::string modulesdir = "";
+std::string cachedir = "";
 std::string file = "BUILDENV";
 PyObject* obj = 0;
 PyObject *options = 0;
@@ -791,6 +796,26 @@ void load_serpent_home_dir()
     }
 }
 
+std::string hexStr(BYTE *data, int len)
+{
+     std::stringstream ss;
+     ss << std::hex;
+     for( int i(0) ; i < len; ++i )
+         ss << std::setw(2) << std::setfill('0') << (int)data[i];
+     return ss.str();
+}
+
+std::string workingdirToHex(const char* workingDirectory)
+{
+      //Create a digest from working directory...
+      BYTE digest[SHA256_BLOCK_SIZE];
+      SHA256_CTX ctx;
+      sha256_init(&ctx);
+      sha256_update(&ctx, (BYTE*)workingDirectory, strlen(workingDirectory));
+      sha256_final(&ctx, digest);
+      return hexStr(digest, sizeof(digest));  
+}
+
 int main(int argc, char** argv)
 {
   //Create the directory
@@ -806,6 +831,9 @@ int main(int argc, char** argv)
   modulesdir = std::string(userdir);
   modulesdir.append("modules");
   CreateDirectory(modulesdir.c_str(), false);   
+  cachedir = std::string(userdir);
+  cachedir.append("cache");
+  CreateDirectory(cachedir.c_str(), false); 
 
   std::string root = "";
   int lastKnownOption = 1;  
@@ -829,6 +857,13 @@ int main(int argc, char** argv)
       //freopen("NUL:", "a", stderr);
       char workingDirectory[2048];
       _getcwd(workingDirectory, 2048);
+      std::string hex = workingdirToHex(workingDirectory);
+
+      //wspcachedir = std::string(userdir);
+      //wspcachedir.append("cache/" + hex);
+      //CreateDirectory(wspcachedir.c_str(), false);
+
+
 
         Py_Initialize();
         load_serpent_home_dir();  
@@ -865,6 +900,21 @@ int main(int argc, char** argv)
       if (pValue == NULL) {
          PyErr_Print();
       }
+
+
+      //Read cache
+      std::ifstream myfile2;
+      myfile2.open(".srp/cache/" + hex);      
+      std::string cache((std::istreambuf_iterator<char>(myfile2)), std::istreambuf_iterator<char>());
+      myfile2.close();
+      if( cache.empty() == false )
+      {
+        PyObject* pValue = PyRun_String(cache.c_str(), Py_file_input, serpent_dictionary, serpent_dictionary);
+        if (pValue == NULL) {
+           PyErr_Print();
+        }
+      }      
+
       
       if( _debug )
       {
@@ -875,6 +925,27 @@ int main(int argc, char** argv)
       PyTuple_SetItem(tuple, 0, Py_BuildValue("s", file.c_str()));
       emb_run(0, tuple);
 
+      PyObject *key, *value;
+      Py_ssize_t pos = 0;
+      std::ofstream myfile;
+      myfile.open(".srp/cache/" + hex);      
+      myfile << "if serpent._WORKING_ROOT ==  r\"" << workingDirectory << "\":\n";
+      while (PyDict_Next(options, &pos, &key, &value)) {
+          const char* k = PyString_AsString(key);
+          const char* v = PyString_AsString(value);
+
+
+          if( v[strlen(v) - 1] == '\\' ) 
+          {
+              myfile << "    serpent.triggers[r\"" << k << "\"] = r\"" << v << "\\\"\n";
+          }
+          else
+          {
+              myfile << "    serpent.triggers[r\"" << k << "\"] = r\"" << v << "\"\n";            
+          }
+      }    
+      myfile.close();
+
       PyObject* pFunc = PyObject_GetAttrString(obj, (char*)"build");
       if( pFunc )
       {
@@ -884,7 +955,7 @@ int main(int argc, char** argv)
         } else {
           PyErr_Print();
         }
-      } 
+      }
 
       /*
       std::ifstream t(file.c_str());
@@ -1049,3 +1120,4 @@ int main(int argc, char** argv)
 
 	return 0;
 }
+
