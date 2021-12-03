@@ -2,7 +2,7 @@ import os, sys, re
 
 required_intdir = '$(INT_DIR)'
 required_outputdir = '$(BIN_PATH)'
-required_targets = ['Debug|Win32', 'Release|Win32', 'Debug|x64', 'Release|x64']
+required_targets = ['Debug|Win32', 'Release|Win32']
 
 def is_external(path):
 	if 'Thirdparty' not in path and 'extern' not in path and 'msvc' not in path:
@@ -32,25 +32,53 @@ def verify(path):
 			if required_outputdir not in e.text:
 				print ('Error: project %s does not output in %s' % (path, required_outputdir))
 
+		# Check the OutDir references in a project, we want the references to refer to a single location so that all binaries can easilly be distributed.
+		for e in root.findall('PropertyGroup/OutputPath'):
+			if required_outputdir not in e.text:
+				print ('Error: project %s does not output in %s' % (path, required_outputdir))
+
 		# Check the IntDir references in a project, we want the references to refer to a single location so that all binaries can easilly be distributed.
 		for e in root.findall('PropertyGroup/IntDir'):
 			if required_intdir not in e.text:
-				print ('Error: project %s does not intermediate dir does not contain %s' % (path, required_intdir))
+				print ('Error: project %s intermediate dir does not contain %s' % (path, required_intdir))
 
 		# Check the IntDir references in a project, we want these references to include the Platform macro
-		for e in root.findall('PropertyGroup/Platform'):
+		for e in root.findall('PropertyGroup/IntDir'):
 			if '$(Platform)' not in e.text:
-				print ('Error: project %s does not intermediate dir does not contain $(Platform)' % path)
+				print ('Error: project %s intermediate dir does not contain $(Platform)' % path)
 
 		# Check the IntDir references in a project, we want these references to include the Configuration macro
-		for e in root.findall('PropertyGroup/Platform'):
+		for e in root.findall('PropertyGroup/IntDir'):
 			if '$(Configuration)' not in e.text:
-				print ('Error: project %s does not intermediate dir does not contain $(Configuration)' % path)
+				print ('Error: project %s intermediate dir does not contain $(Configuration)' % path)
+
+		# Check the IntDir references in a project, we want the references to refer to a single location so that all binaries can easilly be distributed.
+		for e in root.findall('PropertyGroup/BaseIntermediateOutputPath'):
+			if required_intdir not in e.text:
+				print ('Error: project %s intermediate dir does not contain %s' % (path, required_intdir))						
+
+		# Check the IntDir references in a project, we want the references to refer to a single location so that all binaries can easilly be distributed.
+		for e in root.findall('PropertyGroup/IntermediateOutputPath'):
+			if '$(Platform)' not in e.text:
+				print ('Error: project %s intermediate dir does not contain $(Platform)' % path)
+				print e.text
+
+		# Check the IntDir references in a project, we want the references to refer to a single location so that all binaries can easilly be distributed.
+		for e in root.findall('PropertyGroup/IntermediateOutputPath'):
+			if '$(Configuration)' not in e.text:
+				print ('Error: project %s intermediate dir does not contain $(Configuration)' % path)				
+				print e.text
+
 
 		# Check for the required project configurations.
 		desired = {}		
-		for e in root.findall('ItemGroup/ProjectConfiguration'):						
+		for e in root.findall('ItemGroup/ProjectConfiguration'):
 			desired[e.attrib['Include']] = True
+		for e in root.findall('PropertyGroup'):		
+			if 'Condition' in e.attrib:
+				if re.match("\s*'\$\(Configuration\)\|\$\(Platform\)'\s*==\s*'([^']+)'\s*", e.attrib['Condition']):
+					desired[re.match("\s*'\$\(Configuration\)\|\$\(Platform\)'\s*==\s*'([^']+)'\s*", e.attrib['Condition']).groups(1)[0]] = True
+		
 		for target in required_targets:
 			if target not in desired:
 				print ('Error: project %s does not support %s' % (path, target))
