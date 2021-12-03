@@ -38,7 +38,7 @@ def visual_studio(project, files, name, deps = [], toolset='v110', defines = [],
 
 	if serpent.projects.get(name, None) != None:
 		raise Exception("Duplicate name")
-	serpent.projects[name] = project;
+	serpent.projects[name] = os.path.abspath(project);
 	serpent.outdirs[name] = outdir;
 	serpent.target( name = name )
 
@@ -106,7 +106,7 @@ def qt_project(project, files, name, deps = [], toolset='v110', defines = [], in
 	intdir = os.path.relpath(intdir, os.path.dirname(project))
 	outdir = os.path.relpath(outdir, os.path.dirname(project))
 
-	serpent.projects[name] = project;
+	serpent.projects[name] = os.path.abspath(project);
 	serpent.outdirs[name] = outdir;
 	serpent.target( name = name )
 
@@ -214,6 +214,7 @@ def msbuild(project, projects = []):
 		for x in projects:
 			configuration = serpent.configuration.get(x, 'Release')
 			x = serpent.projects.get(x, None);				
+
 			if x is not None:
 				fobj.write("    <ProjectToBuild Include=\"%s\">\n" % os.path.relpath(x, os.path.basename(project)));
 				fobj.write("    <AdditionalProperties>Configuration=%s</AdditionalProperties>\n" % configuration)

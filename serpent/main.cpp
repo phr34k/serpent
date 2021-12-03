@@ -33,9 +33,15 @@ static PyObject* emb_load(PyObject *self, PyObject *args)
     if (!PyArg_ParseTuple(args, "s", &command))
         return Py_BuildValue("");
 
+	char abspath[4096];
+	_fullpath(abspath, command, 4096);
+	std::string dir(abspath, strrchr(abspath,'\\') > strrchr(abspath, '/') ? strrchr(abspath, '\\') : strrchr(abspath, '/'));
+	printf("%s\n", abspath);    
+
 	//Lazy load the module...
-	if( _modules_loaded.find(command) == _modules_loaded.end() ) {
-		std::ifstream t(command);
+	if( _modules_loaded.find(abspath) == _modules_loaded.end() ) {		
+		printf("Loading new module %s\r\n", abspath);
+		std::ifstream t(abspath);
 		std::string str((std::istreambuf_iterator<char>(t)),
 						 std::istreambuf_iterator<char>());
 
@@ -48,9 +54,12 @@ static PyObject* emb_load(PyObject *self, PyObject *args)
 		if (pValue == NULL) {
 		   PyErr_Print();
 		}
+		_modules_loaded[abspath] = pNewMod;
 		return pNewMod;
 	} else {
-		return _modules_loaded.find(command)->second;
+		printf("Loading existing module %s\r\n", abspath);
+		Py_INCREF(_modules_loaded.find(abspath)->second);
+		return _modules_loaded.find(abspath)->second;
 	}	
 }
 
@@ -162,14 +171,23 @@ static PyObject* emb_run(PyObject *self, PyObject *args)
 
 	//Lazy load the module...
 	if( _modules_loaded.find(command) == _modules_loaded.end() ) {
+
+		char abspath[4096];
+		_fullpath(abspath, command, 4096);
+		std::string dir(abspath, strrchr(abspath,'\\') > strrchr(abspath, '/') ? strrchr(abspath, '\\') : strrchr(abspath, '/'));
+
 		std::ifstream t(command);
 		std::string str((std::istreambuf_iterator<char>(t)),
 						 std::istreambuf_iterator<char>());
 
+		char workingDirectory[2048];
+		_getcwd(workingDirectory, 2048);		
+		SetCurrentDirectoryA(dir.c_str());
+
 		PyObject* script = PyObject_GetAttrString(obj, "_SERPENT_SCRIPT");
 		PyObject_SetAttrString(obj, "_SERPENT_SCRIPT", Py_BuildValue("s",command));
 		PyObject* workingdir = PyObject_GetAttrString(obj, "_WORKING_DIR");
-		PyObject_SetAttrString(obj, "_WORKING_DIR", Py_BuildValue("s",command));
+		PyObject_SetAttrString(obj, "_WORKING_DIR", Py_BuildValue("s",abspath));
 
 		PyObject *pName, *pModule, *pArgs, *pValue, *pFunc;
 		PyObject *pNewMod = PyModule_New("");
@@ -181,6 +199,7 @@ static PyObject* emb_run(PyObject *self, PyObject *args)
 		if (pValue == NULL) {
 		   PyErr_Print();
 		}
+		SetCurrentDirectoryA(workingDirectory);
 		PyObject_SetAttrString(obj, "_WORKING_DIR", workingdir);
 		PyObject_SetAttrString(obj, "_SERPENT_SCRIPT", script);
 		return pNewMod;
