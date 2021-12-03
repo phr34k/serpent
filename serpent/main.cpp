@@ -848,7 +848,7 @@ int main(int argc, char** argv)
   }
 
 
-  std::function<void(int,char**,int, const std::function<void(char*)>&)> parse_buildenv = [](int argc, char** argv, int lastKnownOption, const std::function<void(char*)>& subaction){
+  std::function<bool(int,char**,int, const std::function<void(char*)>&)> parse_buildenv = [](int argc, char** argv, int lastKnownOption, const std::function<void(char*)>& subaction){
       #ifdef HAVE_CURL  
       curl = curl_easy_init();
       #endif  
@@ -896,6 +896,7 @@ int main(int argc, char** argv)
       PyObject* pValue = PyRun_String(data.c_str(), Py_file_input, serpent_dictionary, serpent_dictionary);
       if (pValue == NULL) {
          PyErr_Print();
+         return false;
       }
 
 
@@ -913,6 +914,7 @@ int main(int argc, char** argv)
           PyObject* pValue = PyRun_String(cache.c_str(), Py_file_input, pLocal, pLocal);
           if (pValue == NULL) {
               PyErr_Print();
+              return false;
           }
       }
 
@@ -961,9 +963,11 @@ int main(int argc, char** argv)
       {
         if (PyCallable_Check(pFunc)) {
           PyObject_CallObject(pFunc,0);
-          PyErr_Print();    
+          PyErr_Print();   
+          return false; 
         } else {
           PyErr_Print();
+          return false;
         }
       }
 
@@ -1007,6 +1011,8 @@ int main(int argc, char** argv)
       {
           subaction(helpAction);
       }
+
+      return true;
   };
 
 	if( argv[lastKnownOption] != 0 && strcmp(argv[lastKnownOption], "help") == 0)

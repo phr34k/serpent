@@ -162,3 +162,17 @@ def target_postbuild():
 
 def target_run():  
   print "run"
+
+
+_environment = environment
+def environment(name="", environments={}, workspace=False):  
+  contents = ""
+  contents += "@echo off\n"
+  for x in environments:
+    contents += "SET " + x + "=" + ";".join(environments[x]) + "\n"    
+  if workspace == True:
+    contents += "SET VSDEVCMD=C:\Program Files (x86)\Microsoft Visual Studio 14.0\Common7\Tools\VsDevCmd.bat\n"
+    contents += "IF EXIST \"%VSDEVCMD%\" (\n"
+    contents += "    CALL \"%VSDEVCMD%\"\n"
+    contents += ")\n"
+  _environment(name, contents)
