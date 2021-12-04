@@ -727,7 +727,7 @@ def qt_project(project, files, name, **kwargs):
 	serpent.projects[name] = os.path.abspath(project);
 	serpent.outdirs[name] = outdir;
 	serpent.target( name = name )
-	serpent._internal[name] = _external(project, name, '380D6B49-C7EA-4F3A-8383-B50CAC3F054D', depends=depends)
+	serpent._internal[name] = _external(project, name, '380D6B49-C7EA-4F3A-8383-B50CAC3F054D', depends=depends, platforms=platforms)
 	serpent._target_outputs[name] = outdir
 	includes = [x.replace('\\', '\\\\') for x in includes]	
 
