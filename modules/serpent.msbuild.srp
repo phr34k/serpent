@@ -45,17 +45,17 @@ serpent.option(
 
 visual_studio_version = serpent.map(
 	lambda x: dict(x)[serpent.triggers['workspace']],
-	data = [("vs2015", 2015), ("vs2017", 2017)]
+	data = [("vs2015", 2015), ("vs2017", 2017), ("vs2022", "2022")]
 )
 
 visual_studio_internal = serpent.map(
 	lambda x: dict(x)[serpent.triggers['workspace']],
-	data = [("vs2015", 14),("vs2017", 15)]
+	data = [("vs2015", 14),("vs2017", 15),("vs2022", 17)]
 )
 
 visual_studio_toolset = serpent.map(
 	lambda x: dict(x)[serpent.triggers['workspace']],
-	data = [("vs2015", 'v140'),("vs2017", 'v141')]
+	data = [("vs2015", 'v140'),("vs2017", 'v141'),("vs2022", 'v143')]
 )
 
 serpent.option(
@@ -180,10 +180,11 @@ class _placeholder:
 		self.generated = None
 
 class _external:
-	def __init__(self, project, name, guid, configurations = None, depends = None, options = [], generate = None, debug=None):
+	def __init__(self, project, name, guid, configurations = None, platforms = None, depends = None, options = [], generate = None, debug=None):
 		self.name = name
 		self.project = os.path.abspath(project)
 		self.configurations = configurations
+		self.platforms = platforms
 		self.guid = guid
 		self.depends = depends
 		self.options = options
@@ -312,7 +313,7 @@ class macro:
 	def __str__(self):
 		return self.value
 
-def external(project, name, configuration = serpent._configurations, depends = [], options = [], generator = None ):
+def external(project, name, configuration = serpent._configurations, platforms = None, depends = [], options = [], generator = None ):
 	if serpent.projects.get(name, None) != None:
 		raise Exception("Duplicate name")
 	serpent.projects[name] = project;
@@ -323,7 +324,7 @@ def external(project, name, configuration = serpent._configurations, depends = [
 		if not os.path.exists(project):
 			raise Exception("Path %s does not exists" % project )		
 		serpent._internal[name].guid = find_guid(project)
-	serpent._internal[name] = _external(project, name, None, configuration, depends, options, generateWrapper, debuginfo())
+	serpent._internal[name] = _external(project, name, None, configuration, platforms, depends, options, generateWrapper, debuginfo())
 
 
 def commandline(name, project, folder, configuration = serpent._configurations, **kwargs):
@@ -403,8 +404,11 @@ def cmake(name, project, folder, input, arguments = [], configuration = serpent.
 	def generate(**kwargs):
 		print(cmake, serpent._targets)
 		if name in serpent._targets:
-			dict = { "vs2017": "Visual Studio 15 2017", "vs2015": "Visual Studio 14 2015"}
-			output = subprocess.call([cmake, "-G", dict[serpent.triggers['workspace']], relative_input] + arguments, cwd=folder)
+			dict = { "vs2022": "Visual Studio 17 2022", "vs2017": "Visual Studio 15 2017", "vs2015": "Visual Studio 14 2015"}
+
+			cmake_args = [cmake, "-G", dict[serpent.triggers['workspace']], relative_input] + arguments
+			print(cmake_args)
+			output = subprocess.call(cmake_args, cwd=folder)
 			print(output)
 
 	serpent._premake.append(_premake)
@@ -527,7 +531,7 @@ def visual_studio(project, files, name, **kwargs):
 	deps = kwargs.get('deps', [])
 	base = kwargs.get('base',  os.path.join( serpent._WORKING_ROOT, serpent._SERPENT_WORKAREA ) )
 	toolversion = kwargs.get('toolversion', serpent.default_toolversion)
-	toolset = kwargs.get('toolset', serpent.default_toolset)
+	toolset = kwargs.get('toolset', visual_studio_toolset or serpent.default_toolset)
 	defines = list(filter(lambda x: x is not None, kwargs.get('defines', [])))
 	includes = list(filter(lambda x: x is not None, kwargs.get('includes', [])))
 	libs = list(filter(lambda x: x is not None, kwargs.get('libs', [])))
@@ -536,7 +540,7 @@ def visual_studio(project, files, name, **kwargs):
 	linkopts = kwargs.get('linkopts', [])
 	intdir = kwargs.get('intdir', [])
 	outdir = kwargs.get('outdir', [])
-	platform = kwargs.get('platform', 'x64') 
+	platforms = kwargs.get('platforms', ['x64']) 
 	resources = kwargs.get('resources', [])
 	shared = kwargs.get('shared', Application)
 	depends = kwargs.get('depends', [])
@@ -563,7 +567,7 @@ def visual_studio(project, files, name, **kwargs):
 		defines[x] = _msvc_entity_safe(defines[x])
 	
 	ensure_path(os.path.dirname(project))
-	serpent._internal[name] = _external(project, name, '380D6B49-C7EA-4F3A-8383-B50CAC3F054D', depends=depends, configurations = configuration )	
+	serpent._internal[name] = _external(project, name, '380D6B49-C7EA-4F3A-8383-B50CAC3F054D', depends=depends, configurations = configuration, platforms=platforms )	
 	visual_studio_filters(project, toolversion=toolversion, files=files, headers=headers)
 
 	runtime = _msvc_to_runtime(runtime)
@@ -590,18 +594,14 @@ def visual_studio(project, files, name, **kwargs):
   </PropertyGroup>\n""" %  (toolversion, toolset, _shared, outdir + '/', intdir + '/'))
 
 		fobj.write("  <ItemGroup Label=\"ProjectConfigurations\">\n")
-		for x in configuration:
-			fobj.write("""    <ProjectConfiguration Include="%s|Win32">\n""" % (x, ))
-			fobj.write("""      <Configuration>%s</Configuration>\n""" % x)
-			fobj.write("""      <Platform>%s</Platform>\n""" % (platform, )) 
-			fobj.write("""      <PlatformTarget>%s</PlatformTarget>\n""" % (platform, )) 
-			fobj.write("""    </ProjectConfiguration>\n""")
-		for x in configuration:
-			fobj.write("""    <ProjectConfiguration Include="%s|x64">\n""" % (x, ))
-			fobj.write("""      <Configuration>%s</Configuration>\n""" % x)
-			fobj.write("""      <Platform>%s</Platform>\n""" % (platform, )) 
-			fobj.write("""      <PlatformTarget>%s</PlatformTarget>\n""" % (platform, )) 
-			fobj.write("""    </ProjectConfiguration>\n""")			
+
+		for y in platforms:
+			for x in configuration:
+				fobj.write("""    <ProjectConfiguration Include="%s|%s">\n""" % (x, y, ))
+				fobj.write("""      <Configuration>%s</Configuration>\n""" % x)
+				fobj.write("""      <Platform>%s</Platform>\n""" % (y, )) 
+				fobj.write("""      <PlatformTarget>%s</PlatformTarget>\n""" % (y, )) 
+				fobj.write("""    </ProjectConfiguration>\n""")			
 		fobj.write("  </ItemGroup>\n")		
 
 		# Generate the imports for the Visual Studio Project
@@ -620,11 +620,10 @@ def visual_studio(project, files, name, **kwargs):
 	  <AdditionalLibraryDirectories>%s;%%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
 	  <AdditionalOptions>%s %%(AdditionalOptions)</AdditionalOptions>
 	  <AdditionalDependencies>%s</AdditionalDependencies>
-	  <TargetMachine>Machine%s</TargetMachine>
 	  <SubSystem>Console</SubSystem>
 	</Link>    
   </ItemDefinitionGroup>\n""" % (_compileopts, (";".join(str(x) for x in defines)), (";".join(str(x) for x in includes)), runtime, (";".join(str(x) for x in libdirs)), 
-  _linkopts, (";".join(str(x) for x in libs)), platform.upper()) )		
+  _linkopts, (";".join(str(x) for x in libs))) )		
 
 		for x in condition:
 			fobj.write("<PropertyGroup Condition=\"%s\">\n" % x.condition )
@@ -687,6 +686,7 @@ def qt_project(project, files, name, **kwargs):
 	toolversion = kwargs.get('toolversion', serpent.default_toolversion)
 	toolset = kwargs.get('toolset', serpent.default_toolset)
 	defines = kwargs.get('defines', [])
+	platforms = kwargs.get('platforms', ['x64']) 
 	includes = kwargs.get('includes', [])
 	libs = kwargs.get('libs', [])
 	libdirs = kwargs.get('libdirs', [])
@@ -757,18 +757,19 @@ def qt_project(project, files, name, **kwargs):
 	<Link>
 	  <AdditionalOptions>%s %%(AdditionalOptions)</AdditionalOptions>
 	  <AdditionalDependencies>%s</AdditionalDependencies>
-	  <TargetMachine>Machine%s</TargetMachine>
 	</Link>    
   </ItemDefinitionGroup>
-		""" %  ( str(toolversion), str(toolset), outdir, intdir, serpent.triggers['qt-sdk'], _compileopts, ";".join(str(x) for x in defines), ";".join(str(x) for x in includes), _linkopts, (";".join(str(x) for x in libs), platform )))
+		""" %  ( str(toolversion), str(toolset), outdir, intdir, serpent.triggers['qt-sdk'], _compileopts, ";".join(str(x) for x in defines), ";".join(str(x) for x in includes), _linkopts, (";".join(str(x) for x in libs) )))
 
-		fobj.write("<ItemGroup>")
-		for x in configuration:
-			fobj.write("""\t<ProjectConfiguration Include="%s|Win32">\n""" % x)
-			fobj.write("""\t\t<Configuration>%s</Configuration>\n""" % x)
-			fobj.write("""\t\t<Platform>Win32</Platform>\n""")
-			fobj.write("""\t</ProjectConfiguration>\n""")
-		fobj.write("</ItemGroup>")
+		fobj.write("  <ItemGroup>\n")
+		for y in platforms:
+			for x in configuration:
+				fobj.write("""    <ProjectConfiguration Include="%s|%s">\n""" % (x, y, ))
+				fobj.write("""      <Configuration>%s</Configuration>\n""" % x)
+				fobj.write("""      <Platform>%s</Platform>\n""" % (y, )) 
+				fobj.write("""      <PlatformTarget>%s</PlatformTarget>\n""" % (y, )) 
+				fobj.write("""    </ProjectConfiguration>\n""")			
+		fobj.write("  </ItemGroup>\n")		
 
 		# Generate the imports for the Visual Studio Project
 		props = kwargs.get('commonprops', "common.props")
@@ -875,11 +876,12 @@ def msbuild(project, projects = [], prepostbuild=False):
 		for x in reversed(projects):
 			x = serpent._internal.get(x, None);
 			if x is not None:
-				for y in x.configurations or serpent._configurations:
-					fobj.write("    <ProjectToBuild Include=\"%s\">\n" % os.path.abspath(x.project));
-					options = ';'.join(x.options)
-					fobj.write("    <AdditionalProperties>Configuration=%s;Platform=x64;%s</AdditionalProperties>\n" % (y, options))  
-					fobj.write("    </ProjectToBuild>\n")
+				for z in x.platforms or ['x64']:
+					for y in x.configurations or serpent._configurations:
+						fobj.write("    <ProjectToBuild Include=\"%s\">\n" % os.path.abspath(x.project));
+						options = ';'.join(x.options)
+						fobj.write("    <AdditionalProperties>Configuration=%s;Platform=%s;%s</AdditionalProperties>\n" % (y, z, options))  
+						fobj.write("    </ProjectToBuild>\n")
 
 		fobj.write("""
 			</ItemGroup>""")
